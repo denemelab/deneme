@@ -40,10 +40,14 @@
   .topbar{background:#1e1b4b;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:16px 24px;}
   .content{flex:1;padding:2rem;max-width:1400px;margin:0 auto;width:100%;}
 
-  /* CARDS */
+  /* CARDS & CHIPS */
   .section-card{background:#fff;border-radius:12px;border:1px solid #e2e8f0;padding:1.5rem;margin-bottom:1.5rem;}
   .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   @media(max-width:768px){.form-row{grid-template-columns:1fr;}}
+  
+  .chip-container {display:flex; gap:8px; margin-bottom:16px; overflow-x:auto; padding-bottom:4px;}
+  .chip { padding:6px 14px; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:100px; font-size:12px; cursor:pointer; color:#334155; font-weight:600; white-space:nowrap; transition:0.2s; }
+  .chip:hover { background:#e2e8f0; border-color:#94a3b8; }
 
   /* OPS GRID */
   .ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px;}
@@ -114,10 +118,12 @@
     
     <div id="panel-teknisyen" class="hidden">
       <div class="section-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.5rem;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
           <h3 style="margin-bottom:0;">➕ Yeni Kayıt Girişi</h3>
           <button class="btn btn-secondary" style="width:auto; margin:0; padding:8px 16px;" onclick="clearAllForm()">🧹 Formu Sıfırla</button>
         </div>
+        
+        <div id="quick-history-chips" class="chip-container"></div>
         
         <datalist id="kayitli-urunler"></datalist>
 
@@ -213,7 +219,7 @@ const ISLEMLER = ["Bütünleme","Fonksiyonel","Sızdırmazlık","ESS","Kalibrasy
 let currentUser = null;
 let currentRole = null;
 let allOpsCache = [];
-let myOpsCache = {}; // Hızlı seçim için önbellek
+let myOpsCache = {}; // Hızlı seçim için bulut önbelleği
 let urunVeritabani = {};
 let barChartInstance = null;
 let pieChartInstance = null;
@@ -267,7 +273,6 @@ function showApp(){
   startAllOpsListener(); 
   if(currentRole === "teknisyen"){
     document.getElementById("panel-teknisyen").classList.remove("hidden");
-    loadLastInputs();
     startMyOpsListener();
   } else {
     document.getElementById("panel-arastirmaci").classList.remove("hidden");
@@ -323,9 +328,7 @@ window.saveOperation = async () => {
     });
 
     await batch.commit();
-    localStorage.setItem("lastUrun", JSON.stringify({urunAdi, kalemNo, revNo, kafileNo}));
     
-    // Toast Bildirim (Daha az rahatsız edici)
     Swal.fire({ title:'Başarılı', text:`${seriListesi.length} Kayıt eklendi`, icon:'success', toast:true, position:'top-end', timer:2000, showConfirmButton:false });
     
     // İŞ AKIŞI HIZLANDIRICI: Otomatik seri numarası artırımı (Tekli girilmişse)
@@ -335,22 +338,33 @@ window.saveOperation = async () => {
         document.getElementById("f-seri-no").value = "";
     }
     
-    // İmleci doğrudan seri no'ya odakla
     document.getElementById("f-seri-no").focus();
 
   } catch(e) { Swal.fire('Hata', e.message, 'error'); }
   hideLoading();
 };
 
-// DİNLEYİCİLER
+// TEKNİSYEN KAYITLARI & BULUT TABANLI HIZLI SEÇİM
 function startMyOpsListener() {
   const q = query(collection(db,"operations"),where("teknisyenId","==",currentUser.uid),orderBy("tarih","desc"));
   onSnapshot(q, (snap) => {
     const tbody = document.getElementById("my-ops-body");
-    myOpsCache = {}; // Cache'i sıfırla
+    myOpsCache = {}; 
+    
+    let uniqueProducts = [];
+    let seenKeys = new Set();
+
     tbody.innerHTML = snap.docs.slice(0, 15).map(d => {
       const r = d.data();
-      myOpsCache[d.id] = r; // Hızlı seçim için objeyi belleğe al
+      myOpsCache[d.id] = r; 
+      
+      // Çipler için benzersiz ürün kombinasyonlarını yakala
+      let key = r.urunAdi + "|" + r.kafileNo;
+      if(!seenKeys.has(key) && uniqueProducts.length < 5) {
+          seenKeys.add(key);
+          uniqueProducts.push({id: d.id, ...r});
+      }
+
       const t = r.tarih?.toDate ? r.tarih.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "Yeni";
       return `<tr>
         <td>${r.urunAdi}</td>
@@ -360,11 +374,24 @@ function startMyOpsListener() {
         <td>${r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("")}</td>
         <td>${t}</td>
         <td style="display:flex; gap:6px;">
-          <button class="btn-success" style="padding:4px 8px; font-size:11px;" onclick="quickFill('${d.id}')">⚡ Hızlı Seç</button>
+          <button class="btn-success" style="padding:4px 8px; font-size:11px;" onclick="quickFill('${d.id}')">⚡ Seç</button>
           <button class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteRec('${d.id}')">Sil</button>
         </td>
       </tr>`;
     }).join("");
+
+    // Formun üstüne "Son Çalışılanlar" Çiplerini Bas
+    const chipsDiv = document.getElementById("quick-history-chips");
+    if(uniqueProducts.length > 0) {
+        let chipsHtml = `<span style="font-size:12px; color:#64748b; align-self:center; font-weight:600;">🕒 Son Çalışılanlar:</span>`;
+        uniqueProducts.forEach(p => {
+            chipsHtml += `<button class="chip" onclick="quickFill('${p.id}')">⚡ ${p.urunAdi} (${p.kafileNo})</button>`;
+        });
+        chipsDiv.innerHTML = chipsHtml;
+    } else {
+        chipsDiv.innerHTML = "";
+    }
+
   });
 }
 
@@ -386,11 +413,10 @@ window.quickFill = (id) => {
     document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.toggle("checked", isChecked);
   });
 
-  // Seri No kutusunu temizle ve yazmaya hazır hale getir
   document.getElementById("f-seri-no").value = "";
   document.getElementById("f-seri-no").focus();
   
-  Swal.fire({ title: 'Hızlı Seçim Aktif', text: 'Ürün bilgileri ve test işlemleri forma yüklendi. Sadece Seri No girerek Enter\'a basabilirsiniz.', icon: 'info', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+  Swal.fire({ title: 'Hızlı Seçim Aktif', text: 'Bilgiler buluttan yüklendi.', icon: 'info', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
 };
 
 function startAllOpsListener() {
@@ -465,16 +491,12 @@ function updateDatalist(data) {
     document.getElementById("kayitli-urunler").innerHTML = Object.keys(urunVeritabani).map(u => `<option value="${u}">`).join("");
 }
 document.getElementById("f-urun-adi").addEventListener("change", function(){ if(urunVeritabani[this.value]) document.getElementById("f-kalem-no").value = urunVeritabani[this.value]; });
-function loadLastInputs() {
-    const last = JSON.parse(localStorage.getItem("lastUrun") || "{}");
-    if(last.urunAdi){
-        document.getElementById("f-urun-adi").value = last.urunAdi;
-        document.getElementById("f-kalem-no").value = last.kalemNo;
-        document.getElementById("f-revizyon-no").value = last.revNo || "";
-        document.getElementById("f-kafile-no").value = last.kafileNo;
-    }
-}
-window.clearAllForm = () => { localStorage.removeItem("lastUrun"); location.reload(); };
+
+window.clearAllForm = () => { 
+  document.querySelectorAll("input[type=text]").forEach(el => el.value="");
+  document.querySelectorAll("input[type=checkbox]").forEach(el => el.checked=false);
+  document.querySelectorAll(".op-check").forEach(el => el.classList.remove("checked"));
+};
 window.switchTab = (t) => {
     document.getElementById("tab-giris").classList.toggle("hidden", t!=='giris');
     document.getElementById("tab-kayit").classList.toggle("hidden", t!=='kayit');
