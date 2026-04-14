@@ -77,7 +77,6 @@
 </head>
 <body>
 
-<!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div class="auth-card">
     <h1>🔬 Kalite Kontrol Sistemi</h1>
@@ -87,7 +86,6 @@
       <button class="tab-btn" onclick="switchTab('kayit')">Kayıt Ol</button>
     </div>
 
-    <!-- GİRİŞ FORMU -->
     <div id="tab-giris">
       <label>E-posta</label>
       <input type="email" id="login-email" placeholder="ornek@sirket.com"/>
@@ -97,7 +95,6 @@
       <button class="btn btn-primary" onclick="doLogin()">Giriş Yap</button>
     </div>
 
-    <!-- KAYIT FORMU -->
     <div id="tab-kayit" class="hidden">
       <label>Ad Soyad</label>
       <input type="text" id="reg-name" placeholder="Adınız Soyadınız"/>
@@ -116,7 +113,6 @@
   </div>
 </div>
 
-<!-- APP SCREEN -->
 <div id="app-screen">
   <div class="topbar">
     <h2 id="topbar-title">Kalite Kontrol Sistemi</h2>
@@ -128,7 +124,6 @@
 
   <div class="content">
 
-    <!-- TEKNİSYEN PANELİ -->
     <div id="panel-teknisyen" class="hidden">
       <div class="section-card">
         <h3>➕ Yeni İşlem Kaydı</h3>
@@ -159,8 +154,7 @@
 
         <label style="margin-top:16px;font-weight:600;color:#333;">Yapılan İşlemler</label>
         <div class="ops-grid" id="ops-grid">
-          <!-- JS ile doldurulacak -->
-        </div>
+          </div>
 
         <div class="error-msg" id="form-error"></div>
         <button class="btn btn-primary" style="margin-top:16px;" onclick="saveOperation()">💾 Kaydet</button>
@@ -181,7 +175,6 @@
       </div>
     </div>
 
-    <!-- ARAŞTIRMACI PANELİ -->
     <div id="panel-arastirmaci" class="hidden">
       <div class="section-card">
         <h3>📊 Genel İstatistikler</h3>
@@ -231,23 +224,22 @@
 
 <div class="success-toast" id="toast">✅ Kayıt başarıyla eklendi!</div>
 
-<!-- FIREBASE SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // =============================================
-// 🔧 BURAYA KENDİ FIREBASE CONFIG'İNİZİ GİRİN
-// Firebase Console > Project Settings > Web App
+// 🔧 FIREBASE CONFIG AYARLARI
 // =============================================
 const firebaseConfig = {
-  apiKey: "BURAYA_API_KEY",
-  authDomain: "BURAYA_AUTH_DOMAIN",
-  projectId: "BURAYA_PROJECT_ID",
-  storageBucket: "BURAYA_STORAGE_BUCKET",
-  messagingSenderId: "BURAYA_MESSAGING_SENDER_ID",
-  appId: "BURAYA_APP_ID"
+  apiKey: "AIzaSyDBoOvJQPPY2fEYYKo_oCufnRyNqbmsY1s",
+  authDomain: "denemelab-8e1b4.firebaseapp.com",
+  projectId: "denemelab-8e1b4",
+  storageBucket: "denemelab-8e1b4.firebasestorage.app",
+  messagingSenderId: "383861738380",
+  appId: "1:383861738380:web:a8d3d4e7fce9e9162ea4a9",
+  measurementId: "G-RKPVTRVDN0"
 };
 // =============================================
 
