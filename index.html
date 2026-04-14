@@ -66,11 +66,6 @@
   .chart-box{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:16px;}
   @media(max-width:900px){.chart-container{grid-template-columns:1fr;}}
 
-  /* TRACKER MODAL */
-  .tracker-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; margin-bottom:8px; border-radius:8px; font-weight:600; }
-  .tracker-done { background:#d1fae5; color:#065f46; border-left:4px solid #10b981; }
-  .tracker-wait { background:#f1f5f9; color:#64748b; border-left:4px solid #cbd5e1; }
-
   .role-badge{padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;margin-left:8px;text-transform:uppercase;}
   .role-teknisyen{background:#dbeafe;color:#1d4ed8;}
   .role-arastirmaci{background:#ede9fe;color:#6d28d9;}
@@ -84,7 +79,7 @@
 <div id="auth-screen">
   <div class="auth-card">
     <h1>🔬 PRO Kalite Kontrol</h1>
-    <p style="color:#64748b; font-size:14px; margin-bottom:1rem;">Tam Sürüm Takip Platformu</p>
+    <p style="color:#64748b; font-size:14px; margin-bottom:1rem;">Hızlı Veri Giriş Portalı</p>
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('giris')">Giriş Yap</button>
       <button class="tab-btn" onclick="switchTab('kayit')">Kayıt Ol</button>
@@ -148,8 +143,8 @@
           </div>
         </div>
         <div style="margin-top:10px;">
-          <label>Seri No (Toplu Giriş: 10-25) *</label>
-          <input type="text" id="f-seri-no" placeholder="Örn: 10 VEYA 101-150 (Kaydetmek için Enter'a basın)"/>
+          <label>Seri No *</label>
+          <input type="text" id="f-seri-no" placeholder="Örn: 10 VEYA 101-150 (Enter ile kaydet)"/>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:20px;">
@@ -158,7 +153,7 @@
         </div>
         <div class="ops-grid" id="ops-grid"></div>
 
-        <button class="btn btn-primary" onclick="saveOperation()">💾 Kaydı Tamamla</button>
+        <button class="btn btn-primary" onclick="saveOperation()">💾 Kaydı Tamamla (Enter)</button>
       </div>
 
       <div class="section-card">
@@ -200,15 +195,13 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, where, orderBy, doc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// FIREBASE CONFIG
 const firebaseConfig = {
   apiKey: "AIzaSyDBoOvJQPPY2fEYYKo_oCufnRyNqbmsY1s",
   authDomain: "denemelab-8e1b4.firebaseapp.com",
   projectId: "denemelab-8e1b4",
   storageBucket: "denemelab-8e1b4.firebasestorage.app",
   messagingSenderId: "383861738380",
-  appId: "1:383861738380:web:a8d3d4e7fce9e9162ea4a9",
-  measurementId: "G-RKPVTRVDN0"
+  appId: "1:383861738380:web:a8d3d4e7fce9e9162ea4a9"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -219,7 +212,7 @@ const ISLEMLER = ["Bütünleme","Fonksiyonel","Sızdırmazlık","ESS","Kalibrasy
 let currentUser = null;
 let currentRole = null;
 let allOpsCache = [];
-let myOpsCache = {}; // Hızlı seçim için bulut önbelleği
+let myOpsCache = {}; 
 let urunVeritabani = {};
 let barChartInstance = null;
 let pieChartInstance = null;
@@ -243,7 +236,7 @@ ISLEMLER.forEach(i => {
   grid.appendChild(div);
 });
 
-// ENTER TUŞU İLE KAYIT HIZLANDIRMA
+// ENTER TUŞU İLE KAYIT
 document.getElementById("f-seri-no").addEventListener("keypress", function(e) {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -279,7 +272,6 @@ function showApp(){
   }
 }
 
-// TOPLU SEÇİM
 let allSelected = false;
 window.toggleAllCheckboxes = () => {
   allSelected = !allSelected;
@@ -290,7 +282,6 @@ window.toggleAllCheckboxes = () => {
   });
 };
 
-// KAYDETME (TOPLU GİRİŞ)
 window.saveOperation = async () => {
   const urunAdi = document.getElementById("f-urun-adi").value.trim();
   const kalemNo = document.getElementById("f-kalem-no").value.trim();
@@ -300,10 +291,10 @@ window.saveOperation = async () => {
   const secilenler = ISLEMLER.filter(i => document.getElementById("op-"+i.replace(/\s/g,"")).checked);
 
   if(!urunAdi || !kalemNo || !kafileNo || !seriNoGiris || secilenler.length === 0) {
-    return Swal.fire('Hata','Lütfen tüm alanları doldurun ve en az 1 işlem seçin.','warning');
+    return Swal.fire('Hata','Tüm alanlar ve en az 1 işlem gerekli.','warning');
   }
 
-  showLoading("Kayıtlar işleniyor...");
+  showLoading("Kaydediliyor...");
   try {
     const unameSnap = await getDoc(doc(db,"users",currentUser.uid));
     const uname = unameSnap.data().name;
@@ -328,25 +319,22 @@ window.saveOperation = async () => {
     });
 
     await batch.commit();
+    Swal.fire({ title:'Başarılı', icon:'success', toast:true, position:'top-end', timer:1500, showConfirmButton:false });
     
-    Swal.fire({ title:'Başarılı', text:`${seriListesi.length} Kayıt eklendi`, icon:'success', toast:true, position:'top-end', timer:2000, showConfirmButton:false });
-    
-    // İŞ AKIŞI HIZLANDIRICI: Otomatik seri numarası artırımı (Tekli girilmişse)
+    // İşlem sonrası otomatik seri artırımı veya temizlik
     if(!seriNoGiris.includes("-") && !isNaN(parseInt(seriNoGiris))) {
         document.getElementById("f-seri-no").value = (parseInt(seriNoGiris) + 1).toString();
     } else {
         document.getElementById("f-seri-no").value = "";
     }
-    
     document.getElementById("f-seri-no").focus();
 
   } catch(e) { Swal.fire('Hata', e.message, 'error'); }
   hideLoading();
 };
 
-// TEKNİSYEN KAYITLARI & BULUT TABANLI HIZLI SEÇİM
 function startMyOpsListener() {
-  const q = query(collection(db,"operations"),where("teknisyenId","==",currentUser.uid),orderBy("tarih","desc"));
+  const q = query(collection(db,"operations"));
   onSnapshot(q, (snap) => {
     const tbody = document.getElementById("my-ops-body");
     myOpsCache = {}; 
@@ -354,18 +342,26 @@ function startMyOpsListener() {
     let uniqueProducts = [];
     let seenKeys = new Set();
 
-    tbody.innerHTML = snap.docs.slice(0, 15).map(d => {
-      const r = d.data();
-      myOpsCache[d.id] = r; 
-      
-      // Çipler için benzersiz ürün kombinasyonlarını yakala
+    const myDocs = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(r => r.teknisyenId === currentUser.uid)
+      .sort((a, b) => {
+         const tA = a.tarih?.toDate ? a.tarih.toDate().getTime() : Date.now();
+         const tB = b.tarih?.toDate ? b.tarih.toDate().getTime() : Date.now();
+         return tB - tA;
+      });
+
+    tbody.innerHTML = myDocs.slice(0, 15).map(r => {
+      myOpsCache[r.id] = r; 
       let key = r.urunAdi + "|" + r.kafileNo;
       if(!seenKeys.has(key) && uniqueProducts.length < 5) {
           seenKeys.add(key);
-          uniqueProducts.push({id: d.id, ...r});
+          uniqueProducts.push(r);
       }
 
-      const t = r.tarih?.toDate ? r.tarih.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "Yeni";
+      const isNew = !r.tarih?.toDate;
+      const t = isNew ? `<span style="color:#10b981; font-weight:bold;">⚡ Yeni</span>` : r.tarih.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+      
       return `<tr>
         <td>${r.urunAdi}</td>
         <td>${r.revizyonNo || '-'}</td>
@@ -374,29 +370,25 @@ function startMyOpsListener() {
         <td>${r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("")}</td>
         <td>${t}</td>
         <td style="display:flex; gap:6px;">
-          <button class="btn-success" style="padding:4px 8px; font-size:11px;" onclick="quickFill('${d.id}')">⚡ Seç</button>
-          <button class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteRec('${d.id}')">Sil</button>
+          <button class="btn-secondary" style="padding:4px 8px; font-size:11px; border:1px solid #cbd5e1;" onclick="quickFill('${r.id}', false)">🔄 Sıradaki Seri</button>
+          <button class="btn-success" style="padding:4px 8px; font-size:11px;" onclick="quickFill('${r.id}', true)">➕ Aynı Seriye İşlem</button>
+          <button class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteRec('${r.id}')">Sil</button>
         </td>
       </tr>`;
     }).join("");
 
-    // Formun üstüne "Son Çalışılanlar" Çiplerini Bas
     const chipsDiv = document.getElementById("quick-history-chips");
     if(uniqueProducts.length > 0) {
         let chipsHtml = `<span style="font-size:12px; color:#64748b; align-self:center; font-weight:600;">🕒 Son Çalışılanlar:</span>`;
         uniqueProducts.forEach(p => {
-            chipsHtml += `<button class="chip" onclick="quickFill('${p.id}')">⚡ ${p.urunAdi} (${p.kafileNo})</button>`;
+            chipsHtml += `<button class="chip" onclick="quickFill('${p.id}', false)">⚡ ${p.urunAdi} (${p.kafileNo})</button>`;
         });
         chipsDiv.innerHTML = chipsHtml;
-    } else {
-        chipsDiv.innerHTML = "";
     }
-
   });
 }
 
-// HIZLI SEÇİM FONKSİYONU
-window.quickFill = (id) => {
+window.quickFill = (id, ayniSeriyeYeniIslem = false) => {
   const r = myOpsCache[id];
   if(!r) return;
   
@@ -405,23 +397,34 @@ window.quickFill = (id) => {
   document.getElementById("f-revizyon-no").value = r.revizyonNo || "";
   document.getElementById("f-kafile-no").value = r.kafileNo || "";
   
-  // İşlemleri o kayda göre işaretle
-  ISLEMLER.forEach(i => {
-    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
-    const isChecked = r.islemler.includes(i);
-    cb.checked = isChecked;
-    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.toggle("checked", isChecked);
-  });
-
-  document.getElementById("f-seri-no").value = "";
+  if (ayniSeriyeYeniIslem) {
+    document.getElementById("f-seri-no").value = r.seriNo || ""; // Seri no KORU
+    ISLEMLER.forEach(i => {
+      const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+      cb.checked = false; 
+      document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.remove("checked");
+    });
+    Swal.fire({ title: 'Aynı Seri Yüklendi', text: 'Yeni aşamayı seçin.', icon: 'info', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+  } else {
+    document.getElementById("f-seri-no").value = ""; // Seri no SİL
+    ISLEMLER.forEach(i => {
+      const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+      const isChecked = r.islemler.includes(i);
+      cb.checked = isChecked;
+      document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.toggle("checked", isChecked);
+    });
+    Swal.fire({ title: 'Şablon Yüklendi', text: 'Seri numarasını girin.', icon: 'info', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
+  }
   document.getElementById("f-seri-no").focus();
-  
-  Swal.fire({ title: 'Hızlı Seçim Aktif', text: 'Bilgiler buluttan yüklendi.', icon: 'info', toast: true, position: 'top-end', timer: 2000, showConfirmButton: false });
 };
 
 function startAllOpsListener() {
-  onSnapshot(query(collection(db,"operations"),orderBy("tarih","desc")), (snap) => {
-    allOpsCache = snap.docs.map(d=>({id: d.id, ...d.data()}));
+  onSnapshot(query(collection(db,"operations")), (snap) => {
+    allOpsCache = snap.docs.map(d=>({id: d.id, ...d.data()})).sort((a,b)=>{
+        const tA = a.tarih?.toDate ? a.tarih.toDate() : 0;
+        const tB = b.tarih?.toDate ? b.tarih.toDate() : 0;
+        return tB - tA;
+    });
     updateDatalist(allOpsCache);
     if(currentRole === "arastirmaci") {
         renderAllOps();
@@ -447,7 +450,6 @@ function renderAllOps() {
   }).join("");
 }
 
-// GRAFİKLER
 function updateCharts(data) {
     const counts = {}; ISLEMLER.forEach(i => counts[i] = data.filter(r => r.islemler.includes(i)).length);
     if(barChartInstance) barChartInstance.destroy();
@@ -455,36 +457,26 @@ function updateCharts(data) {
         type: 'bar',
         data: { labels: ISLEMLER, datasets: [{ label: 'Test Sayısı', data: Object.values(counts), backgroundColor: '#4f46e5' }] }
     });
-    
-    const techCounts = {}; data.forEach(r => techCounts[r.teknisyenAdi] = (techCounts[r.teknisyenAdi] || 0) + 1);
-    if(pieChartInstance) pieChartInstance.destroy();
-    pieChartInstance = new Chart(document.getElementById('pieChart'), {
-        type: 'doughnut',
-        data: { labels: Object.keys(techCounts), datasets: [{ data: Object.values(techCounts), backgroundColor: ['#10b981','#f59e0b','#3b82f6','#ef4444'] }] }
-    });
 }
 
-// AŞAMA TAKİBİ
 window.viewTracker = (kafile, seri) => {
   const records = allOpsCache.filter(r => r.kafileNo === kafile && r.seriNo === seri);
   let done = new Set(); records.forEach(r => r.islemler.forEach(i => done.add(i)));
   let html = `<div style="text-align:left;">`;
   ISLEMLER.forEach(op => {
     const isDone = done.has(op);
-    html += `<div class="tracker-item ${isDone?'tracker-done':'tracker-wait'}"><span>${op}</span><span>${isDone?'✅ Tamam':'⏳ Bekliyor'}</span></div>`;
+    html += `<div style="display:flex; justify-content:space-between; padding:8px; margin-bottom:4px; border-radius:6px; background:${isDone?'#d1fae5':'#f1f5f9'}; border-left:4px solid ${isDone?'#10b981':'#cbd5e1'}"><span>${op}</span><span>${isDone?'✅':'⏳'}</span></div>`;
   });
   html += `</div>`;
   Swal.fire({ title: `İzlenebilirlik: ${kafile} - ${seri}`, html: html });
 };
 
-// EXCEL
 window.exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(allOpsCache.map(r => ({ Ürün: r.urunAdi, Revizyon: r.revizyonNo || '-', Kalem: r.kalemNo, Kafile: r.kafileNo, Seri: r.seriNo, İşlemler: r.islemler.join(", "), Teknisyen: r.teknisyenAdi })));
+    const ws = XLSX.utils.json_to_sheet(allOpsCache.map(r => ({ Ürün: r.urunAdi, Rev: r.revizyonNo, Kalem: r.kalemNo, Kafile: r.kafileNo, Seri: r.seriNo, İşlemler: r.islemler.join(", "), Teknisyen: r.teknisyenAdi })));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Kayıtlar");
     XLSX.writeFile(wb, "Kalite_Rapor.xlsx");
 };
 
-// YARDIMCILAR
 window.deleteRec = async (id) => { if(confirm("Kaydı silecek misiniz?")) await deleteDoc(doc(db,"operations",id)); };
 function updateDatalist(data) {
     data.forEach(r => { if(r.urunAdi) urunVeritabani[r.urunAdi] = r.kalemNo; });
@@ -494,22 +486,21 @@ document.getElementById("f-urun-adi").addEventListener("change", function(){ if(
 
 window.clearAllForm = () => { 
   document.querySelectorAll("input[type=text]").forEach(el => el.value="");
-  document.querySelectorAll("input[type=checkbox]").forEach(el => el.checked=false);
+  document.querySelectorAll("input[type=checkbox]").forEach(el => { el.checked=false; });
   document.querySelectorAll(".op-check").forEach(el => el.classList.remove("checked"));
 };
 window.switchTab = (t) => {
     document.getElementById("tab-giris").classList.toggle("hidden", t!=='giris');
     document.getElementById("tab-kayit").classList.toggle("hidden", t!=='kayit');
-    document.querySelectorAll(".tab-btn").forEach((b,i) => b.classList.toggle("active", (t==='giris'&&i===0)||(t==='kayit'&&i===1)));
 };
 window.doLogin = async () => {
-    showLoading("Giriş yapılıyor...");
+    showLoading("Giriş...");
     try { await signInWithEmailAndPassword(auth, document.getElementById("login-email").value, document.getElementById("login-pass").value); }
     catch(e){ Swal.fire("Hata", "Giriş başarısız", "error"); }
     hideLoading();
 };
 window.doRegister = async () => {
-    showLoading("Kayıt ediliyor...");
+    showLoading("Kayıt...");
     try {
         const res = await createUserWithEmailAndPassword(auth, document.getElementById("reg-email").value, document.getElementById("reg-pass").value);
         await setDoc(doc(db,"users",res.user.uid), {name: document.getElementById("reg-name").value, role: document.getElementById("reg-role").value});
