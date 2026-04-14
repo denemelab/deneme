@@ -97,6 +97,11 @@
   .empty-state{text-align:center;padding:4rem;color:#94a3b8;font-size:15px;font-weight:500;}
   
   .action-buttons{display:flex;gap:6px;}
+  
+  /* Ürün Takip Modalı Stilleri */
+  .tracker-item { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; margin-bottom:8px; border-radius:8px; font-weight:600; font-size:14px; }
+  .tracker-done { background:#d1fae5; color:#065f46; border-left:4px solid #10b981; }
+  .tracker-wait { background:#f1f5f9; color:#64748b; border-left:4px solid #cbd5e1; }
 </style>
 </head>
 <body>
@@ -114,23 +119,16 @@
       <button class="tab-btn active" onclick="switchTab('giris')">Giriş Yap</button>
       <button class="tab-btn" onclick="switchTab('kayit')">Kayıt Ol</button>
     </div>
-
     <div id="tab-giris">
-      <label>E-posta</label>
-      <input type="email" id="login-email" placeholder="ornek@sirket.com"/>
-      <label>Şifre</label>
-      <input type="password" id="login-pass" placeholder="••••••••"/>
+      <label>E-posta</label><input type="email" id="login-email" placeholder="ornek@sirket.com"/>
+      <label>Şifre</label><input type="password" id="login-pass" placeholder="••••••••"/>
       <div class="error-msg" id="login-error"></div>
       <button class="btn btn-primary" onclick="doLogin()">Giriş Yap</button>
     </div>
-
     <div id="tab-kayit" class="hidden">
-      <label>Ad Soyad</label>
-      <input type="text" id="reg-name" placeholder="Adınız Soyadınız"/>
-      <label>E-posta</label>
-      <input type="email" id="reg-email" placeholder="ornek@sirket.com"/>
-      <label>Şifre</label>
-      <input type="password" id="reg-pass" placeholder="En az 6 karakter"/>
+      <label>Ad Soyad</label><input type="text" id="reg-name" placeholder="Adınız Soyadınız"/>
+      <label>E-posta</label><input type="email" id="reg-email" placeholder="ornek@sirket.com"/>
+      <label>Şifre</label><input type="password" id="reg-pass" placeholder="En az 6 karakter"/>
       <label>Rol</label>
       <select id="reg-role">
         <option value="teknisyen">Teknisyen (Kayıt Girer)</option>
@@ -155,13 +153,19 @@
 
     <div id="panel-teknisyen" class="hidden">
       <div class="section-card">
-        <h3 id="form-title">➕ Yeni İşlem Kaydı</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1.25rem;">
+          <h3 id="form-title" style="margin-bottom:0;">➕ Yeni İşlem Kaydı</h3>
+          <button class="btn btn-secondary" style="width:auto; margin:0; padding:6px 12px; font-size:12px;" onclick="clearAllForm()">🧹 Yeni Ürüne Geç</button>
+        </div>
+        
         <input type="hidden" id="edit-id" value="">
         
+        <datalist id="kayitli-urunler"></datalist>
+
         <div class="form-row">
           <div>
             <label>Ürün Adı *</label>
-            <input type="text" id="f-urun-adi" placeholder="Ürün adını girin"/>
+            <input type="text" id="f-urun-adi" list="kayitli-urunler" placeholder="Listeden seçin veya yazın"/>
           </div>
           <div>
             <label>Kalem No *</label>
@@ -188,7 +192,7 @@
           </div>
 
         <div style="display:flex;gap:10px;margin-top:20px;">
-          <button class="btn btn-primary" id="btn-save" onclick="saveOperation()">💾 Kaydet</button>
+          <button class="btn btn-primary" id="btn-save" onclick="saveOperation()">💾 Kaydet (Seriye Devam Et)</button>
           <button class="btn btn-secondary hidden" id="btn-cancel-edit" onclick="cancelEdit()">❌ İptal</button>
         </div>
       </div>
@@ -209,43 +213,23 @@
     </div>
 
     <div id="panel-arastirmaci" class="hidden">
-      
       <div class="chart-container">
-        <div class="chart-box">
-          <canvas id="barChart"></canvas>
-        </div>
-        <div class="chart-box">
-          <canvas id="pieChart"></canvas>
-        </div>
-      </div>
-
-      <div class="section-card">
-        <h3>📊 Genel İstatistikler</h3>
-        <div class="stat-row" id="stats-row">
-          <div class="stat"><div class="num" id="stat-total">0</div><div class="lbl">Toplam</div></div>
-          <div class="stat"><div class="num" id="stat-butunleme">0</div><div class="lbl">Bütünleme</div></div>
-          <div class="stat"><div class="num" id="stat-fonksiyonel">0</div><div class="lbl">Fonksiyonel</div></div>
-          <div class="stat"><div class="num" id="stat-sızdirmazlik">0</div><div class="lbl">Sızdırmazlık</div></div>
-          <div class="stat"><div class="num" id="stat-ess">0</div><div class="lbl">ESS</div></div>
-          <div class="stat"><div class="num" id="stat-kalibrasyon">0</div><div class="lbl">Kalibrasyon</div></div>
-          <div class="stat"><div class="num" id="stat-nemalma">0</div><div class="lbl">Nem Alma</div></div>
-        </div>
+        <div class="chart-box"><canvas id="barChart"></canvas></div>
+        <div class="chart-box"><canvas id="pieChart"></canvas></div>
       </div>
 
       <div class="section-card">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:10px;">
-          <h3>🔍 Tüm Kayıtlar (Canlı)</h3>
+          <h3>🔍 Tüm Kayıtlar & Ürün Takibi</h3>
           <button class="btn btn-success" onclick="exportExcel()">📥 Excel Olarak İndir</button>
         </div>
         
         <div class="filter-row">
           <div class="input-group">
-            <label>Kalem No</label>
-            <input type="text" id="filter-kalem" placeholder="Ara..."/>
+            <label>Kalem No</label><input type="text" id="filter-kalem" placeholder="Ara..."/>
           </div>
           <div class="input-group">
-            <label>Kafile No</label>
-            <input type="text" id="filter-kafile" placeholder="Ara..."/>
+            <label>Kafile No</label><input type="text" id="filter-kafile" placeholder="Ara..."/>
           </div>
           <div class="input-group">
             <label>İşlem Tipi</label>
@@ -259,16 +243,7 @@
               <option value="Nem Alma">Nem Alma</option>
             </select>
           </div>
-          <div class="input-group">
-            <label>Başlangıç Tarihi</label>
-            <input type="date" id="filter-start"/>
-          </div>
-          <div class="input-group">
-            <label>Bitiş Tarihi</label>
-            <input type="date" id="filter-end"/>
-          </div>
           <button class="btn btn-primary" style="width:auto;margin:0;padding:10px 16px;" onclick="renderAllOps()">Filtrele</button>
-          <button class="btn btn-secondary" style="width:auto;margin:0;padding:10px 16px;" onclick="clearFilters()">Temizle</button>
         </div>
 
         <div class="table-wrap">
@@ -292,7 +267,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, where, orderBy, doc, setDoc, getDoc, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
-// SİZİN FIREBASE AYARLARINIZ
 const firebaseConfig = {
   apiKey: "AIzaSyDBoOvJQPPY2fEYYKo_oCufnRyNqbmsY1s",
   authDomain: "denemelab-8e1b4.firebaseapp.com",
@@ -313,21 +287,14 @@ let currentRole = null;
 let allOpsCache = [];
 let myOpsUnsubscribe = null;
 let allOpsUnsubscribe = null;
+let urunVeritabani = {}; // Otomatik tamamlama hafızası
 
-// Chart Instance'ları
 let barChartInstance = null;
 let pieChartInstance = null;
 
-// Yükleme Göstergesi
-function showLoading(text="İşlem yapılıyor..."){
-  document.getElementById("loader-text").innerText = text;
-  document.getElementById("loader").style.display = "flex";
-}
-function hideLoading(){
-  document.getElementById("loader").style.display = "none";
-}
+function showLoading(text="İşlem yapılıyor..."){ document.getElementById("loader-text").innerText = text; document.getElementById("loader").style.display = "flex"; }
+function hideLoading(){ document.getElementById("loader").style.display = "none"; }
 
-// Checkbox Grid Oluşturma
 const grid = document.getElementById("ops-grid");
 ISLEMLER.forEach(islem => {
   const id = "op-" + islem.replace(/\s/g,"");
@@ -343,7 +310,6 @@ ISLEMLER.forEach(islem => {
   grid.appendChild(div);
 });
 
-// Auth State Dinleyici
 onAuthStateChanged(auth, async (user) => {
   if(user){
     showLoading("Kullanıcı bilgileri alınıyor...");
@@ -352,16 +318,13 @@ onAuthStateChanged(auth, async (user) => {
     if(snap.exists()){
       const data = snap.data();
       currentRole = data.role;
-      document.getElementById("topbar-user").innerHTML = 
-        `👤 ${data.name} <span class="role-badge role-${currentRole}">${currentRole}</span>`;
+      document.getElementById("topbar-user").innerHTML = `👤 ${data.name} <span class="role-badge role-${currentRole}">${currentRole}</span>`;
       showApp();
     }
     hideLoading();
   } else {
     currentUser = null;
     currentRole = null;
-    if(myOpsUnsubscribe) myOpsUnsubscribe();
-    if(allOpsUnsubscribe) allOpsUnsubscribe();
     document.getElementById("auth-screen").style.display = "flex";
     document.getElementById("app-screen").style.display = "none";
   }
@@ -373,16 +336,19 @@ function showApp(){
   document.getElementById("panel-teknisyen").classList.add("hidden");
   document.getElementById("panel-arastirmaci").classList.add("hidden");
   
+  // Otomatik tamamlama listesini oluşturmak için arka planda tüm verileri çek (Teknisyen için de)
+  startAllOpsListener(); 
+
   if(currentRole === "teknisyen"){
     document.getElementById("panel-teknisyen").classList.remove("hidden");
+    loadLastInputs();
     startMyOpsListener();
   } else {
     document.getElementById("panel-arastirmaci").classList.remove("hidden");
-    startAllOpsListener();
   }
 }
 
-// --- AUTH İŞLEMLERİ ---
+// AUTH FUNCTIONS
 window.switchTab = (tab) => {
   document.querySelectorAll(".tab-btn").forEach((b,i)=>{b.classList.toggle("active",i===(tab==="giris"?0:1));});
   document.getElementById("tab-giris").classList.toggle("hidden", tab!=="giris");
@@ -393,37 +359,60 @@ window.doLogin = async () => {
   const email = document.getElementById("login-email").value.trim();
   const pass = document.getElementById("login-pass").value;
   if(!email || !pass) return Swal.fire('Hata','Tüm alanları doldurun','error');
-  
   showLoading("Giriş yapılıyor...");
-  try {
-    await signInWithEmailAndPassword(auth, email, pass);
-  } catch(e) {
-    hideLoading();
-    Swal.fire('Giriş Başarısız', e.message.includes("invalid") ? "E-posta veya şifre hatalı." : e.message, 'error');
-  }
-};
-
-window.doRegister = async () => {
-  const name = document.getElementById("reg-name").value.trim();
-  const email = document.getElementById("reg-email").value.trim();
-  const pass = document.getElementById("reg-pass").value;
-  const role = document.getElementById("reg-role").value;
-  if(!name || !email || pass.length < 6) return Swal.fire('Hata','Lütfen tüm alanları doğru doldurun (Şifre min. 6 karakter)','error');
-  
-  showLoading("Kayıt oluşturuluyor...");
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, email, pass);
-    await setDoc(doc(db,"users",cred.user.uid),{name,email,role,createdAt:serverTimestamp()});
-    Swal.fire('Başarılı','Hesabınız oluşturuldu!','success');
-  } catch(e) {
-    hideLoading();
-    Swal.fire('Kayıt Başarısız', e.code === "auth/email-already-in-use" ? "Bu e-posta kullanımda." : e.message, 'error');
-  }
+  try { await signInWithEmailAndPassword(auth, email, pass); } 
+  catch(e) { hideLoading(); Swal.fire('Giriş Başarısız', "Hatalı bilgi", 'error'); }
 };
 
 window.doLogout = () => signOut(auth);
 
-// --- TEKNİSYEN İŞLEMLERİ (CRUD) ---
+// YENİ ÜRÜNE GEÇ (Sadece Seri No ve İşlemleri Temizler)
+function resetForm() {
+  document.getElementById("f-seri-no").value = "";
+  ISLEMLER.forEach(i=>{
+    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+    cb.checked = false;
+    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.remove("checked");
+  });
+  document.getElementById("f-seri-no").focus(); 
+}
+
+window.clearAllForm = () => {
+  ["f-urun-adi","f-kalem-no","f-revizyon-no","f-kafile-no","f-seri-no"].forEach(id=>{
+    document.getElementById(id).value="";
+  });
+  ISLEMLER.forEach(i=>{
+    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+    cb.checked = false;
+    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.remove("checked");
+  });
+  localStorage.removeItem("lastUrun");
+};
+
+function loadLastInputs() {
+  const lastData = JSON.parse(localStorage.getItem("lastUrun") || "{}");
+  if(lastData.urunAdi) document.getElementById("f-urun-adi").value = lastData.urunAdi;
+  if(lastData.kalemNo) document.getElementById("f-kalem-no").value = lastData.kalemNo;
+  if(lastData.revNo) document.getElementById("f-revizyon-no").value = lastData.revNo;
+  if(lastData.kafileNo) document.getElementById("f-kafile-no").value = lastData.kafileNo;
+}
+
+// OTOMATİK TAMAMLAMA (Ürün seçilince Kalem No dolar)
+document.getElementById("f-urun-adi").addEventListener("change", function() {
+    const secilenUrun = this.value.trim();
+    if(urunVeritabani[secilenUrun]) {
+        document.getElementById("f-kalem-no").value = urunVeritabani[secilenUrun];
+    }
+});
+
+function updateDatalist(data) {
+    urunVeritabani = {};
+    data.forEach(r => { if(r.urunAdi && r.kalemNo) urunVeritabani[r.urunAdi] = r.kalemNo; });
+    const datalist = document.getElementById("kayitli-urunler");
+    datalist.innerHTML = Object.keys(urunVeritabani).map(u => `<option value="${u}">`).join("");
+}
+
+// KAYDETME
 window.saveOperation = async () => {
   const editId = document.getElementById("edit-id").value;
   const urunAdi = document.getElementById("f-urun-adi").value.trim();
@@ -433,8 +422,8 @@ window.saveOperation = async () => {
   const seriNo = document.getElementById("f-seri-no").value.trim();
   const secilenler = ISLEMLER.filter(i => document.getElementById("op-"+i.replace(/\s/g,"")).checked);
   
-  if(!urunAdi||!kalemNo||!kafileNo||!seriNo) return Swal.fire('Eksik Bilgi','Lütfen * ile işaretli zorunlu alanları doldurun.','warning');
-  if(secilenler.length===0) return Swal.fire('Eksik Bilgi','En az bir işlem seçmelisiniz.','warning');
+  if(!urunAdi||!kalemNo||!kafileNo||!seriNo) return Swal.fire('Eksik Bilgi','Zorunlu alanları doldurun.','warning');
+  if(secilenler.length===0) return Swal.fire('Eksik Bilgi','İşlem seçmelisiniz.','warning');
   
   showLoading("Kaydediliyor...");
   try {
@@ -447,119 +436,43 @@ window.saveOperation = async () => {
 
     if(editId) {
       await updateDoc(doc(db,"operations", editId), payload);
-      Swal.fire('Güncellendi','Kayıt başarıyla güncellendi.','success');
       cancelEdit();
     } else {
       payload.tarih = serverTimestamp();
       await addDoc(collection(db,"operations"), payload);
-      Swal.fire('Eklendi','Kayıt başarıyla oluşturuldu.','success');
+      
+      localStorage.setItem("lastUrun", JSON.stringify({urunAdi, kalemNo, revNo: revizyonNo, kafileNo}));
+      Swal.fire({ title: 'Eklendi', text: 'Sıradaki seriye geçebilirsiniz.', icon: 'success', timer: 1500, showConfirmButton: false });
       resetForm();
     }
-  } catch(e){
-    Swal.fire('Hata', e.message, 'error');
-  }
+  } catch(e){ Swal.fire('Hata', e.message, 'error'); }
   hideLoading();
 };
 
-function resetForm() {
-  ["f-urun-adi","f-kalem-no","f-revizyon-no","f-kafile-no","f-seri-no"].forEach(id=>{document.getElementById(id).value="";});
-  ISLEMLER.forEach(i=>{
-    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
-    cb.checked = false;
-    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.remove("checked");
-  });
-}
-
-// REAL-TIME: Teknisyenin kendi kayıtları
+// ... (MyOps Dinleyici kodları aynı)
 function startMyOpsListener() {
   if(myOpsUnsubscribe) myOpsUnsubscribe();
   const q = query(collection(db,"operations"),where("teknisyenId","==",currentUser.uid),orderBy("tarih","desc"));
-  
   myOpsUnsubscribe = onSnapshot(q, (snap) => {
     const tbody = document.getElementById("my-ops-body");
-    if(snap.empty){tbody.innerHTML='<tr><td colspan="6" class="empty-state">Henüz kayıt girmediniz.</td></tr>';return;}
-    
-    window.myOpsData = {}; // Silme/Düzenleme için verileri hafızada tut
+    if(snap.empty){tbody.innerHTML='<tr><td colspan="6" class="empty-state">Kayıt yok.</td></tr>';return;}
+    window.myOpsData = {};
     tbody.innerHTML = snap.docs.map(d=>{
       const r = d.data();
       window.myOpsData[d.id] = r;
       const tarih = r.tarih?.toDate ? r.tarih.toDate().toLocaleDateString("tr-TR") + " " + r.tarih.toDate().toLocaleTimeString("tr-TR",{hour:'2-digit',minute:'2-digit'}) : "Bekliyor...";
-      const pills = r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("");
-      
-      return `<tr>
-        <td><strong>${r.urunAdi}</strong></td>
-        <td>${r.kalemNo}</td>
-        <td>${r.kafileNo} / ${r.seriNo}</td>
-        <td><div class="ops-display">${pills}</div></td>
-        <td>${tarih}</td>
-        <td>
-          <div class="action-buttons">
-            <button class="btn btn-warning" onclick="startEdit('${d.id}')">✏️ Düzenle</button>
-            <button class="btn btn-danger" onclick="deleteRecord('${d.id}')">🗑️ Sil</button>
-          </div>
-        </td>
-      </tr>`;
+      return `<tr><td><strong>${r.urunAdi}</strong></td><td>${r.kalemNo}</td><td>${r.kafileNo} / ${r.seriNo}</td><td><div class="ops-display">${r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("")}</div></td><td>${tarih}</td><td><button class="btn btn-warning" onclick="startEdit('${d.id}')">✏️ Düzenle</button></td></tr>`;
     }).join("");
   });
 }
 
-window.startEdit = (id) => {
-  const r = window.myOpsData[id];
-  if(!r) return;
-  document.getElementById("edit-id").value = id;
-  document.getElementById("form-title").innerHTML = "✏️ Kaydı Düzenle";
-  document.getElementById("f-urun-adi").value = r.urunAdi;
-  document.getElementById("f-kalem-no").value = r.kalemNo;
-  document.getElementById("f-revizyon-no").value = r.revizyonNo || "";
-  document.getElementById("f-kafile-no").value = r.kafileNo;
-  document.getElementById("f-seri-no").value = r.seriNo;
-  
-  ISLEMLER.forEach(i=>{
-    const checked = r.islemler.includes(i);
-    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
-    cb.checked = checked;
-    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.toggle("checked", checked);
-  });
-  
-  document.getElementById("btn-save").innerHTML = "💾 Değişiklikleri Kaydet";
-  document.getElementById("btn-cancel-edit").classList.remove("hidden");
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-};
-
-window.cancelEdit = () => {
-  document.getElementById("edit-id").value = "";
-  document.getElementById("form-title").innerHTML = "➕ Yeni İşlem Kaydı";
-  document.getElementById("btn-save").innerHTML = "💾 Kaydet";
-  document.getElementById("btn-cancel-edit").classList.add("hidden");
-  resetForm();
-};
-
-window.deleteRecord = (id) => {
-  Swal.fire({
-    title: 'Emin misiniz?',
-    text: "Bu kayıt kalıcı olarak silinecektir!",
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#3085d6',
-    confirmButtonText: 'Evet, Sil!',
-    cancelButtonText: 'İptal'
-  }).then(async (result) => {
-    if (result.isConfirmed) {
-      await deleteDoc(doc(db, "operations", id));
-      Swal.fire('Silindi!','Kayıt başarıyla silindi.','success');
-    }
-  });
-};
-
-// --- ARAŞTIRMACI İŞLEMLERİ ---
 function startAllOpsListener() {
   if(allOpsUnsubscribe) allOpsUnsubscribe();
   const q = query(collection(db,"operations"),orderBy("tarih","desc"));
-  
   allOpsUnsubscribe = onSnapshot(q, (snap) => {
     allOpsCache = snap.docs.map(d=>({id: d.id, ...d.data()}));
-    renderAllOps(); // Filtreleri uygulayarak çiz ve istatistikleri güncelle
+    updateDatalist(allOpsCache); // Datalist'i güncelle
+    if(currentRole === "arastirmaci") renderAllOps();
   });
 }
 
@@ -567,177 +480,75 @@ window.renderAllOps = () => {
   const fKalem = document.getElementById("filter-kalem").value.trim().toLowerCase();
   const fKafile = document.getElementById("filter-kafile").value.trim().toLowerCase();
   const fIslem = document.getElementById("filter-islem").value;
-  const fStart = document.getElementById("filter-start").value;
-  const fEnd = document.getElementById("filter-end").value;
   
   let data = allOpsCache;
-  
-  // Filtreleme
   if(fKalem) data = data.filter(r=>r.kalemNo.toLowerCase().includes(fKalem));
   if(fKafile) data = data.filter(r=>r.kafileNo.toLowerCase().includes(fKafile));
   if(fIslem) data = data.filter(r=>r.islemler&&r.islemler.includes(fIslem));
-  
-  if(fStart || fEnd) {
-    data = data.filter(r => {
-      if(!r.tarih) return false;
-      const recDate = r.tarih.toDate();
-      // Set to midnight for fair comparison
-      recDate.setHours(0,0,0,0);
-      
-      let pass = true;
-      if(fStart) {
-        const sd = new Date(fStart); sd.setHours(0,0,0,0);
-        if(recDate < sd) pass = false;
-      }
-      if(fEnd) {
-        const ed = new Date(fEnd); ed.setHours(0,0,0,0);
-        if(recDate > ed) pass = false;
-      }
-      return pass;
-    });
-  }
 
-  // Tablo Çizimi
   const tbody = document.getElementById("all-ops-body");
-  if(data.length===0){
-    tbody.innerHTML='<tr><td colspan="8" class="empty-state">Filtrelere uygun kayıt bulunamadı</td></tr>';
-  } else {
+  if(data.length===0){ tbody.innerHTML='<tr><td colspan="8" class="empty-state">Kayıt bulunamadı</td></tr>'; } 
+  else {
     tbody.innerHTML = data.map(r=>{
       const tarih = r.tarih?.toDate ? r.tarih.toDate().toLocaleDateString("tr-TR") : "-";
       return `<tr>
         <td><strong>${r.urunAdi}</strong></td><td>${r.kalemNo}</td><td>${r.revizyonNo||"-"}</td><td>${r.kafileNo}</td>
-        <td>${r.seriNo}</td>
-        <td>${r.teknisyenAdi||"-"}</td><td>${tarih}</td>
-        <td><button class="btn btn-secondary" style="padding:6px 12px;margin:0;font-size:12px;" onclick="viewDetails('${r.id}')">👁️ İncele</button></td>
+        <td>${r.seriNo}</td><td>${r.teknisyenAdi||"-"}</td><td>${tarih}</td>
+        <td><button class="btn btn-secondary" style="padding:6px 12px;margin:0;font-size:12px; border:1px solid #cbd5e1" onclick="viewDetails('${r.kafileNo}','${r.seriNo}')">👁️ Aşama Takibi</button></td>
       </tr>`;
     }).join("");
   }
-  
-  updateStatsAndCharts(data);
 };
 
-window.clearFilters = () => {
-  document.getElementById("filter-kalem").value = "";
-  document.getElementById("filter-kafile").value = "";
-  document.getElementById("filter-islem").value = "";
-  document.getElementById("filter-start").value = "";
-  document.getElementById("filter-end").value = "";
-  renderAllOps();
-};
-
-window.viewDetails = (id) => {
-  const r = allOpsCache.find(x => x.id === id);
-  if(!r) return;
-  const tarih = r.tarih?.toDate ? r.tarih.toDate().toLocaleString("tr-TR") : "-";
-  const pills = (r.islemler||[]).map(i=>`<span class="op-pill">${i}</span>`).join(" ");
+// YENİ: AŞAMA TAKİBİ FONKSİYONU
+window.viewDetails = (kafileNo, seriNo) => {
+  // Seçilen Kafile ve Seriye ait TÜM geçmiş kayıtları topla
+  const records = allOpsCache.filter(r => r.kafileNo === kafileNo && r.seriNo === seriNo);
   
-  Swal.fire({
-    title: `Ürün Detayı: ${r.urunAdi}`,
-    html: `
-      <div style="text-align:left; line-height:1.8; font-size:14px; margin-top:10px;">
-        <p><strong>Kalem No:</strong> ${r.kalemNo}</p>
-        <p><strong>Revizyon No:</strong> ${r.revizyonNo || "-"}</p>
-        <p><strong>Kafile No:</strong> ${r.kafileNo}</p>
-        <p><strong>Seri No:</strong> ${r.seriNo}</p>
-        <p><strong>İşlemi Yapan:</strong> ${r.teknisyenAdi}</p>
-        <p><strong>Tarih:</strong> ${tarih}</p>
-        <p style="margin-top:10px;"><strong>Uygulanan İşlemler:</strong><br>${pills}</p>
-      </div>
-    `,
-    icon: 'info',
-    confirmButtonText: 'Kapat'
-  });
-};
-
-function updateStatsAndCharts(data){
-  // Text Stats
-  document.getElementById("stat-total").textContent = data.length;
+  // Bugüne kadar yapılmış eşsiz işlemleri bir kümeye (Set) ekle
+  let doneOps = new Set();
+  records.forEach(r => r.islemler.forEach(i => doneOps.add(i)));
   
-  let islemCounts = [];
-  let islemLabels = [];
+  // HTML Çıktısı oluştur
+  let htmlContent = `
+    <div style="font-size:13px; color:#475569; margin-bottom:15px;">
+      Bu listedeki adımlar farklı zamanlarda farklı teknisyenler tarafından girilmiş olsa bile birleştirilerek gösterilmektedir.
+    </div>
+    <div style="text-align:left;">
+  `;
   
-  ISLEMLER.forEach(i=>{
-    const count = data.filter(r=>r.islemler&&r.islemler.includes(i)).length;
-    const key = "stat-"+i.toLowerCase().replace(/\s/g,"");
-    const el = document.getElementById(key);
-    if(el) el.textContent = count;
+  let tamamlananSayisi = 0;
+  
+  ISLEMLER.forEach(op => {
+    const isDone = doneOps.has(op);
+    if(isDone) tamamlananSayisi++;
+    const cssClass = isDone ? "tracker-done" : "tracker-wait";
+    const icon = isDone ? "✅ Tamamlandı" : "⏳ Bekliyor";
     
-    islemLabels.push(i);
-    islemCounts.push(count);
-  });
-
-  // Chart 1: İşlem Dağılımı (Bar)
-  const ctxBar = document.getElementById('barChart').getContext('2d');
-  if(barChartInstance) barChartInstance.destroy();
-  barChartInstance = new Chart(ctxBar, {
-    type: 'bar',
-    data: {
-      labels: islemLabels,
-      datasets: [{
-        label: 'Yapılan İşlem Sayısı',
-        data: islemCounts,
-        backgroundColor: '#4f46e5',
-        borderRadius: 4
-      }]
-    },
-    options: { responsive: true, plugins: { title: { display: true, text: 'İşlem Türüne Göre Dağılım' } } }
-  });
-
-  // Chart 2: Teknisyen Dağılımı (Pie)
-  const techCounts = {};
-  data.forEach(r => {
-    const t = r.teknisyenAdi || 'Bilinmiyor';
-    techCounts[t] = (techCounts[t] || 0) + 1;
+    htmlContent += `
+      <div class="tracker-item ${cssClass}">
+        <span>${op}</span>
+        <span style="font-size:12px;">${icon}</span>
+      </div>
+    `;
   });
   
-  const ctxPie = document.getElementById('pieChart').getContext('2d');
-  if(pieChartInstance) pieChartInstance.destroy();
-  pieChartInstance = new Chart(ctxPie, {
-    type: 'doughnut',
-    data: {
-      labels: Object.keys(techCounts),
-      datasets: [{
-        data: Object.values(techCounts),
-        backgroundColor: ['#10b981','#f59e0b','#ef4444','#3b82f6','#8b5cf6','#ec4899']
-      }]
-    },
-    options: { responsive: true, plugins: { title: { display: true, text: 'Teknisyen Kayıt Dağılımı' } } }
+  const yuzde = Math.round((tamamlananSayisi / ISLEMLER.length) * 100);
+  
+  htmlContent += `
+    </div>
+    <div style="margin-top:20px; font-weight:bold; color:#0f172a; font-size:16px;">
+      Genel Tamamlanma: %${yuzde}
+    </div>
+  `;
+
+  Swal.fire({
+    title: `Ürün Takibi: ${kafileNo} / ${seriNo}`,
+    html: htmlContent,
+    icon: yuzde === 100 ? 'success' : 'info',
+    confirmButtonText: 'Kapat',
+    width: '450px'
   });
-}
-
-// EXCEL EXPORT (SheetJS)
-window.exportExcel = () => {
-  if(allOpsCache.length === 0) return Swal.fire('Uyarı','Dışa aktarılacak veri yok','warning');
-  
-  // Ekranda görünen filtrelenmiş veriyi almak için tabloyu değil render fonksiyonundaki mantığı kullanıyoruz
-  // Basitlik adına allOpsCache'i filtrelerden geçirip o anki halini Excel'e basalım.
-  // Kolay yol: all-ops-body içindeki TR'leri çekmek ya da veriyi tekrar filtrelemek. (Veriyi tekrar filtrelemek daha temiz).
-  
-  const fKalem = document.getElementById("filter-kalem").value.trim().toLowerCase();
-  const fKafile = document.getElementById("filter-kafile").value.trim().toLowerCase();
-  const fIslem = document.getElementById("filter-islem").value;
-  let data = allOpsCache;
-  if(fKalem) data = data.filter(r=>r.kalemNo.toLowerCase().includes(fKalem));
-  if(fKafile) data = data.filter(r=>r.kafileNo.toLowerCase().includes(fKafile));
-  if(fIslem) data = data.filter(r=>r.islemler&&r.islemler.includes(fIslem));
-
-  const exportData = data.map(r => ({
-    "Tarih": r.tarih?.toDate ? r.tarih.toDate().toLocaleString("tr-TR") : "-",
-    "Ürün Adı": r.urunAdi,
-    "Kalem No": r.kalemNo,
-    "Revizyon No": r.revizyonNo || "-",
-    "Kafile No": r.kafileNo,
-    "Seri No": r.seriNo,
-    "Yapılan İşlemler": (r.islemler || []).join(", "),
-    "Teknisyen": r.teknisyenAdi || "-"
-  }));
-
-  const worksheet = XLSX.utils.json_to_sheet(exportData);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Kalite_Kontrol_Kayitlari");
-  
-  // Dosyayı indir
-  XLSX.writeFile(workbook, "Kalite_Kontrol_Raporu.xlsx");
 };
 </script>
 </body>
