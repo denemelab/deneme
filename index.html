@@ -193,7 +193,8 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, where, orderBy, doc, setDoc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+// getDocs importu eklendi
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, where, orderBy, doc, setDoc, getDoc, getDocs, onSnapshot, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDBoOvJQPPY2fEYYKo_oCufnRyNqbmsY1s",
@@ -309,14 +310,51 @@ window.saveOperation = async () => {
       seriListesi.push(seriNoGiris);
     }
 
-    seriListesi.forEach(s => {
-      const docRef = doc(collection(db, "operations"));
-      batch.set(docRef, { 
-        urunAdi, kalemNo, revizyonNo: revNo, kafileNo, seriNo: s, 
-        islemler: secilenler, teknisyenId: currentUser.uid, 
-        teknisyenAdi: uname, tarih: serverTimestamp() 
-      });
-    });
+    // Aynı kafile numarasına sahip geçmiş kayıtları çekiyoruz
+    const existingQuery = query(collection(db, "operations"), where("kafileNo", "==", kafileNo));
+    const existingSnap = await getDocs(existingQuery);
+    const existingRecords = existingSnap.docs.map(d => ({id: d.id, ...d.data()}));
+
+    let hasError = false;
+    let errorMessage = "";
+
+    for (let s of seriListesi) {
+      const existing = existingRecords.find(r => r.seriNo === s);
+
+      if (existing) {
+        // Zaten bu ürün için bir kayıt var. Yeni işlemleri tespit edelim.
+        const newOps = secilenler.filter(op => !existing.islemler.includes(op));
+
+        if (newOps.length === 0) {
+          // Seçilen tüm işlemler bu ürün için halihazırda yapılmış. Hata fırlat.
+          hasError = true;
+          errorMessage = `Seri No: ${s} için seçilen işlemler zaten kayıtlı!`;
+          break;
+        } else {
+          // Seçilenler arasında yeni bir işlem varsa, mevcut kaydı yenile (güncelle).
+          const combinedOps = [...existing.islemler, ...newOps];
+          batch.update(doc(db, "operations", existing.id), {
+            islemler: combinedOps,
+            teknisyenId: currentUser.uid, // Son işlemi yapan güncelleniyor
+            teknisyenAdi: uname,
+            tarih: serverTimestamp()
+          });
+        }
+      } else {
+        // Kayıt yok, yepyeni bir belge oluşturuyoruz.
+        const docRef = doc(collection(db, "operations"));
+        batch.set(docRef, { 
+          urunAdi, kalemNo, revizyonNo: revNo, kafileNo, seriNo: s, 
+          islemler: secilenler, teknisyenId: currentUser.uid, 
+          teknisyenAdi: uname, tarih: serverTimestamp() 
+        });
+      }
+    }
+
+    if (hasError) {
+      hideLoading();
+      return Swal.fire('Hata', errorMessage, 'error');
+    }
 
     await batch.commit();
     Swal.fire({ title:'Başarılı', icon:'success', toast:true, position:'top-end', timer:1500, showConfirmButton:false });
