@@ -70,7 +70,7 @@
   .role-badge{padding:4px 10px;border-radius:100px;font-size:11px;font-weight:700;margin-left:8px;text-transform:uppercase;}
   .role-teknisyen{background:#dbeafe;color:#1d4ed8;}
   .role-arastirmaci{background:#ede9fe;color:#6d28d9;}
-  .op-pill{padding:4px 10px;background:#f1f5f9;color:#475569;border-radius:6px;font-size:11px;font-weight:600;margin-right:4px;border:1px solid #e2e8f0;}
+  .op-pill{padding:4px 10px;background:#f1f5f9;color:#475569;border-radius:6px;font-size:11px;font-weight:600;margin-right:4px;border:1px solid #e2e8f0; display:inline-block; margin-bottom:4px;}
 </style>
 </head>
 <body>
@@ -143,7 +143,7 @@
         </div>
         <div style="margin-top:10px;">
           <label>Seri No (Toplu Giriş: 10-25) *</label>
-          <input type="text" id="f-seri-no" placeholder="Örn: 10 VEYA 101-150"/>
+          <input type="text" id="f-seri-no" placeholder="Örn: 10 VEYA 101-150 (Kaydetmek için Enter'a basın)"/>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-top:20px;">
@@ -159,7 +159,7 @@
         <h3>📋 Son Kayıtlarım</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Ürün</th><th>Kafile</th><th>Seri</th><th>İşlemler</th><th>Tarih</th><th>Aksiyon</th></tr></thead>
+            <thead><tr><th>Ürün</th><th>Rev</th><th>Kafile</th><th>Seri</th><th>İşlemler</th><th>Tarih</th><th>Aksiyon</th></tr></thead>
             <tbody id="my-ops-body"></tbody>
           </table>
         </div>
@@ -179,7 +179,7 @@
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Ürün</th><th>Kalem</th><th>Kafile</th><th>Seri</th><th>Teknisyen</th><th>Tarih</th><th>Aşama</th></tr></thead>
+            <thead><tr><th>Ürün</th><th>Rev</th><th>Kalem</th><th>Kafile</th><th>Seri</th><th>Teknisyen</th><th>Tarih</th><th>Aşama</th></tr></thead>
             <tbody id="all-ops-body"></tbody>
           </table>
         </div>
@@ -213,6 +213,7 @@ const ISLEMLER = ["Bütünleme","Fonksiyonel","Sızdırmazlık","ESS","Kalibrasy
 let currentUser = null;
 let currentRole = null;
 let allOpsCache = [];
+let myOpsCache = {}; // Hızlı seçim için önbellek
 let urunVeritabani = {};
 let barChartInstance = null;
 let pieChartInstance = null;
@@ -234,6 +235,14 @@ ISLEMLER.forEach(i => {
     div.classList.toggle("checked", cb.checked);
   };
   grid.appendChild(div);
+});
+
+// ENTER TUŞU İLE KAYIT HIZLANDIRMA
+document.getElementById("f-seri-no").addEventListener("keypress", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    saveOperation();
+  }
 });
 
 // AUTH DURUMU
@@ -286,7 +295,7 @@ window.saveOperation = async () => {
   const secilenler = ISLEMLER.filter(i => document.getElementById("op-"+i.replace(/\s/g,"")).checked);
 
   if(!urunAdi || !kalemNo || !kafileNo || !seriNoGiris || secilenler.length === 0) {
-    return Swal.fire('Hata','Lütfen tüm alanları doldurun.','warning');
+    return Swal.fire('Hata','Lütfen tüm alanları doldurun ve en az 1 işlem seçin.','warning');
   }
 
   showLoading("Kayıtlar işleniyor...");
@@ -315,9 +324,20 @@ window.saveOperation = async () => {
 
     await batch.commit();
     localStorage.setItem("lastUrun", JSON.stringify({urunAdi, kalemNo, revNo, kafileNo}));
-    Swal.fire({ title:'Başarılı', text:`${seriListesi.length} Kayıt eklendi`, icon:'success', timer:1500, showConfirmButton:false });
-    document.getElementById("f-seri-no").value = "";
+    
+    // Toast Bildirim (Daha az rahatsız edici)
+    Swal.fire({ title:'Başarılı', text:`${seriListesi.length} Kayıt eklendi`, icon:'success', toast:true, position:'top-end', timer:2000, showConfirmButton:false });
+    
+    // İŞ AKIŞI HIZLANDIRICI: Otomatik seri numarası artırımı (Tekli girilmişse)
+    if(!seriNoGiris.includes("-") && !isNaN(parseInt(seriNoGiris))) {
+        document.getElementById("f-seri-no").value = (parseInt(seriNoGiris) + 1).toString();
+    } else {
+        document.getElementById("f-seri-no").value = "";
+    }
+    
+    // İmleci doğrudan seri no'ya odakla
     document.getElementById("f-seri-no").focus();
+
   } catch(e) { Swal.fire('Hata', e.message, 'error'); }
   hideLoading();
 };
@@ -327,13 +347,51 @@ function startMyOpsListener() {
   const q = query(collection(db,"operations"),where("teknisyenId","==",currentUser.uid),orderBy("tarih","desc"));
   onSnapshot(q, (snap) => {
     const tbody = document.getElementById("my-ops-body");
+    myOpsCache = {}; // Cache'i sıfırla
     tbody.innerHTML = snap.docs.slice(0, 15).map(d => {
       const r = d.data();
+      myOpsCache[d.id] = r; // Hızlı seçim için objeyi belleğe al
       const t = r.tarih?.toDate ? r.tarih.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : "Yeni";
-      return `<tr><td>${r.urunAdi}</td><td>${r.kafileNo}</td><td>${r.seriNo}</td><td>${r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("")}</td><td>${t}</td><td><button class="btn-danger" onclick="deleteRec('${d.id}')">Sil</button></td></tr>`;
+      return `<tr>
+        <td>${r.urunAdi}</td>
+        <td>${r.revizyonNo || '-'}</td>
+        <td>${r.kafileNo}</td>
+        <td>${r.seriNo}</td>
+        <td>${r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("")}</td>
+        <td>${t}</td>
+        <td style="display:flex; gap:6px;">
+          <button class="btn-success" style="padding:4px 8px; font-size:11px;" onclick="quickFill('${d.id}')">⚡ Hızlı Seç</button>
+          <button class="btn-danger" style="padding:4px 8px; font-size:11px;" onclick="deleteRec('${d.id}')">Sil</button>
+        </td>
+      </tr>`;
     }).join("");
   });
 }
+
+// HIZLI SEÇİM FONKSİYONU
+window.quickFill = (id) => {
+  const r = myOpsCache[id];
+  if(!r) return;
+  
+  document.getElementById("f-urun-adi").value = r.urunAdi || "";
+  document.getElementById("f-kalem-no").value = r.kalemNo || "";
+  document.getElementById("f-revizyon-no").value = r.revizyonNo || "";
+  document.getElementById("f-kafile-no").value = r.kafileNo || "";
+  
+  // İşlemleri o kayda göre işaretle
+  ISLEMLER.forEach(i => {
+    const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+    const isChecked = r.islemler.includes(i);
+    cb.checked = isChecked;
+    document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.toggle("checked", isChecked);
+  });
+
+  // Seri No kutusunu temizle ve yazmaya hazır hale getir
+  document.getElementById("f-seri-no").value = "";
+  document.getElementById("f-seri-no").focus();
+  
+  Swal.fire({ title: 'Hızlı Seçim Aktif', text: 'Ürün bilgileri ve test işlemleri forma yüklendi. Sadece Seri No girerek Enter\'a basabilirsiniz.', icon: 'info', toast: true, position: 'top-end', timer: 3000, showConfirmButton: false });
+};
 
 function startAllOpsListener() {
   onSnapshot(query(collection(db,"operations"),orderBy("tarih","desc")), (snap) => {
@@ -350,7 +408,16 @@ function renderAllOps() {
   const tbody = document.getElementById("all-ops-body");
   tbody.innerHTML = allOpsCache.slice(0, 50).map(r => {
     const t = r.tarih?.toDate ? r.tarih.toDate().toLocaleDateString("tr-TR") : "-";
-    return `<tr><td>${r.urunAdi}</td><td>${r.kalemNo}</td><td>${r.kafileNo}</td><td>${r.seriNo}</td><td>${r.teknisyenAdi}</td><td>${t}</td><td><button class="btn-warning" onclick="viewTracker('${r.kafileNo}','${r.seriNo}')">Takip</button></td></tr>`;
+    return `<tr>
+        <td>${r.urunAdi}</td>
+        <td>${r.revizyonNo || '-'}</td>
+        <td>${r.kalemNo}</td>
+        <td>${r.kafileNo}</td>
+        <td>${r.seriNo}</td>
+        <td>${r.teknisyenAdi}</td>
+        <td>${t}</td>
+        <td><button class="btn-warning" onclick="viewTracker('${r.kafileNo}','${r.seriNo}')">Takip</button></td>
+    </tr>`;
   }).join("");
 }
 
@@ -386,7 +453,7 @@ window.viewTracker = (kafile, seri) => {
 
 // EXCEL
 window.exportExcel = () => {
-    const ws = XLSX.utils.json_to_sheet(allOpsCache.map(r => ({ Ürün: r.urunAdi, Kalem: r.kalemNo, Kafile: r.kafileNo, Seri: r.seriNo, İşlemler: r.islemler.join(", "), Teknisyen: r.teknisyenAdi })));
+    const ws = XLSX.utils.json_to_sheet(allOpsCache.map(r => ({ Ürün: r.urunAdi, Revizyon: r.revizyonNo || '-', Kalem: r.kalemNo, Kafile: r.kafileNo, Seri: r.seriNo, İşlemler: r.islemler.join(", "), Teknisyen: r.teknisyenAdi })));
     const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Kayıtlar");
     XLSX.writeFile(wb, "Kalite_Rapor.xlsx");
 };
@@ -403,7 +470,7 @@ function loadLastInputs() {
     if(last.urunAdi){
         document.getElementById("f-urun-adi").value = last.urunAdi;
         document.getElementById("f-kalem-no").value = last.kalemNo;
-        document.getElementById("f-revizyon-no").value = last.revNo;
+        document.getElementById("f-revizyon-no").value = last.revNo || "";
         document.getElementById("f-kafile-no").value = last.kafileNo;
     }
 }
