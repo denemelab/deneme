@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Kalite Kontrol Takip Sistemi</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:system-ui,sans-serif;background:#f5f5f5;color:#222;min-height:100vh;}
+  .hidden{display:none!important;}
+
+  /* AUTH */
+  #auth-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;}
+  .auth-card{background:#fff;border-radius:12px;border:1px solid #e0e0e0;padding:2rem;width:100%;max-width:400px;}
+  .auth-card h1{font-size:20px;font-weight:600;margin-bottom:4px;color:#111;}
+  .auth-card p.sub{font-size:13px;color:#777;margin-bottom:1.5rem;}
+  .tabs{display:flex;gap:4px;margin-bottom:1.5rem;background:#f0f0f0;border-radius:8px;padding:4px;}
+  .tab-btn{flex:1;padding:8px;border:none;background:transparent;border-radius:6px;font-size:13px;cursor:pointer;color:#555;font-weight:500;}
+  .tab-btn.active{background:#fff;color:#111;box-shadow:0 1px 3px rgba(0,0,0,.1);}
+  label{font-size:13px;color:#555;display:block;margin-bottom:4px;margin-top:12px;}
+  input[type=text],input[type=email],input[type=password],select{width:100%;padding:9px 12px;border:1px solid #ddd;border-radius:7px;font-size:14px;outline:none;transition:border .2s;}
+  input:focus,select:focus{border-color:#4f46e5;}
+  .btn{width:100%;padding:10px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:16px;transition:opacity .2s;}
+  .btn-primary{background:#4f46e5;color:#fff;}
+  .btn-primary:hover{opacity:.9;}
+  .btn-secondary{background:#f0f0f0;color:#333;}
+  .btn-secondary:hover{background:#e5e5e5;}
+  .error-msg{color:#dc2626;font-size:12px;margin-top:8px;padding:8px;background:#fef2f2;border-radius:6px;display:none;}
+
+  /* APP LAYOUT */
+  #app-screen{display:none;flex-direction:column;min-height:100vh;}
+  .topbar{background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;}
+  .topbar h2{font-size:15px;font-weight:600;}
+  .topbar .user-info{font-size:12px;opacity:.85;}
+  .logout-btn{background:rgba(255,255,255,.2);border:none;color:#fff;padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;}
+  .logout-btn:hover{background:rgba(255,255,255,.3);}
+  .content{flex:1;padding:1.5rem;max-width:1100px;margin:0 auto;width:100%;}
+
+  /* CARDS */
+  .section-card{background:#fff;border-radius:10px;border:1px solid #e5e5e5;padding:1.25rem;margin-bottom:1.25rem;}
+  .section-card h3{font-size:15px;font-weight:600;margin-bottom:1rem;color:#333;}
+  .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:600px){.form-row{grid-template-columns:1fr;}}
+
+  /* CHECKBOX GRID */
+  .ops-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:8px;}
+  .op-check{display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid #e0e0e0;border-radius:8px;cursor:pointer;transition:all .15s;}
+  .op-check:hover{border-color:#4f46e5;background:#f5f3ff;}
+  .op-check input{width:16px;height:16px;accent-color:#4f46e5;cursor:pointer;}
+  .op-check span{font-size:13px;font-weight:500;color:#444;}
+  .op-check.checked{border-color:#4f46e5;background:#ede9fe;}
+
+  /* TABLE */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:#f8f8f8;padding:10px 12px;text-align:left;font-weight:600;color:#555;border-bottom:2px solid #e5e5e5;white-space:nowrap;}
+  td{padding:9px 12px;border-bottom:1px solid #f0f0f0;color:#333;}
+  tr:hover td{background:#fafafa;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;}
+  .badge-done{background:#d1fae5;color:#065f46;}
+  .badge-partial{background:#fef3c7;color:#92400e;}
+  .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:1rem;}
+  .filter-row input,.filter-row select{max-width:200px;padding:7px 10px;font-size:13px;}
+  .stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:1rem;}
+  .stat{background:#f8f7ff;border:1px solid #ede9fe;border-radius:8px;padding:12px;text-align:center;}
+  .stat .num{font-size:22px;font-weight:700;color:#4f46e5;}
+  .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
+  .success-toast{position:fixed;bottom:20px;right:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;transform:translateY(80px);transition:transform .3s;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+  .success-toast.show{transform:translateY(0);}
+  .role-badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:11px;font-weight:600;margin-left:8px;}
+  .role-teknisyen{background:#dbeafe;color:#1e40af;}
+  .role-arastirmaci{background:#ede9fe;color:#5b21b6;}
+  .ops-display{display:flex;flex-wrap:wrap;gap:4px;}
+  .op-pill{padding:2px 7px;background:#ede9fe;color:#4f46e5;border-radius:100px;font-size:11px;font-weight:500;}
+  .empty-state{text-align:center;padding:3rem;color:#aaa;font-size:14px;}
+</style>
+</head>
+<body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>🔬 Kalite Kontrol Sistemi</h1>
+    <p class="sub">Ürün test ve kalite takip platformu</p>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('giris')">Giriş Yap</button>
+      <button class="tab-btn" onclick="switchTab('kayit')">Kayıt Ol</button>
+    </div>
+
+    <!-- GİRİŞ FORMU -->
+    <div id="tab-giris">
+      <label>E-posta</label>
+      <input type="email" id="login-email" placeholder="ornek@sirket.com"/>
+      <label>Şifre</label>
+      <input type="password" id="login-pass" placeholder="••••••••"/>
+      <div class="error-msg" id="login-error"></div>
+      <button class="btn btn-primary" onclick="doLogin()">Giriş Yap</button>
+    </div>
+
+    <!-- KAYIT FORMU -->
+    <div id="tab-kayit" class="hidden">
+      <label>Ad Soyad</label>
+      <input type="text" id="reg-name" placeholder="Adınız Soyadınız"/>
+      <label>E-posta</label>
+      <input type="email" id="reg-email" placeholder="ornek@sirket.com"/>
+      <label>Şifre</label>
+      <input type="password" id="reg-pass" placeholder="En az 6 karakter"/>
+      <label>Rol</label>
+      <select id="reg-role">
+        <option value="teknisyen">Teknisyen</option>
+        <option value="arastirmaci">Araştırmacı</option>
+      </select>
+      <div class="error-msg" id="reg-error"></div>
+      <button class="btn btn-primary" onclick="doRegister()">Kayıt Ol</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP SCREEN -->
+<div id="app-screen">
+  <div class="topbar">
+    <h2 id="topbar-title">Kalite Kontrol Sistemi</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="user-info" id="topbar-user"></span>
+      <button class="logout-btn" onclick="doLogout()">Çıkış</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- TEKNİSYEN PANELİ -->
+    <div id="panel-teknisyen" class="hidden">
+      <div class="section-card">
+        <h3>➕ Yeni İşlem Kaydı</h3>
+        <div class="form-row">
+          <div>
+            <label>Ürün Adı</label>
+            <input type="text" id="f-urun-adi" placeholder="Ürün adını girin"/>
+          </div>
+          <div>
+            <label>Kalem No</label>
+            <input type="text" id="f-kalem-no" placeholder="örn: 186445"/>
+          </div>
+        </div>
+        <div class="form-row">
+          <div>
+            <label>Revizyon No</label>
+            <input type="text" id="f-revizyon-no" placeholder="örn: R01"/>
+          </div>
+          <div>
+            <label>Kafile No</label>
+            <input type="text" id="f-kafile-no" placeholder="örn: LS001"/>
+          </div>
+        </div>
+        <div style="margin-top:8px;">
+          <label>Seri No</label>
+          <input type="text" id="f-seri-no" placeholder="örn: 1-50"/>
+        </div>
+
+        <label style="margin-top:16px;font-weight:600;color:#333;">Yapılan İşlemler</label>
+        <div class="ops-grid" id="ops-grid">
+          <!-- JS ile doldurulacak -->
+        </div>
+
+        <div class="error-msg" id="form-error"></div>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="saveOperation()">💾 Kaydet</button>
+      </div>
+
+      <div class="section-card">
+        <h3>📋 Kendi Kayıtlarım</h3>
+        <div class="table-wrap">
+          <table id="my-ops-table">
+            <thead><tr>
+              <th>Ürün Adı</th><th>Kalem No</th><th>Kafile No</th><th>Seri No</th><th>Yapılan İşlemler</th><th>Tarih</th>
+            </tr></thead>
+            <tbody id="my-ops-body">
+              <tr><td colspan="6" class="empty-state">Henüz kayıt yok</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ARAŞTIRMACI PANELİ -->
+    <div id="panel-arastirmaci" class="hidden">
+      <div class="section-card">
+        <h3>📊 Genel İstatistikler</h3>
+        <div class="stat-row" id="stats-row">
+          <div class="stat"><div class="num" id="stat-total">0</div><div class="lbl">Toplam Kayıt</div></div>
+          <div class="stat"><div class="num" id="stat-butunleme">0</div><div class="lbl">Bütünleme</div></div>
+          <div class="stat"><div class="num" id="stat-fonksiyonel">0</div><div class="lbl">Fonksiyonel</div></div>
+          <div class="stat"><div class="num" id="stat-sızdirmazlik">0</div><div class="lbl">Sızdırmazlık</div></div>
+          <div class="stat"><div class="num" id="stat-ess">0</div><div class="lbl">ESS</div></div>
+          <div class="stat"><div class="num" id="stat-kalibrasyon">0</div><div class="lbl">Kalibrasyon</div></div>
+          <div class="stat"><div class="num" id="stat-nemalma">0</div><div class="lbl">Nem Alma</div></div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <h3>🔍 Tüm Kayıtlar</h3>
+        <div class="filter-row">
+          <input type="text" id="filter-kalem" placeholder="Kalem No filtrele"/>
+          <input type="text" id="filter-kafile" placeholder="Kafile No filtrele"/>
+          <select id="filter-islem" onchange="renderAllOps()">
+            <option value="">Tüm işlemler</option>
+            <option value="Bütünleme">Bütünleme</option>
+            <option value="Fonksiyonel">Fonksiyonel</option>
+            <option value="Sızdırmazlık">Sızdırmazlık</option>
+            <option value="ESS">ESS</option>
+            <option value="Kalibrasyon">Kalibrasyon</option>
+            <option value="Nem Alma">Nem Alma</option>
+          </select>
+          <button class="btn btn-secondary" style="width:auto;margin:0;padding:7px 16px;" onclick="renderAllOps()">Filtrele</button>
+          <button class="btn btn-secondary" style="width:auto;margin:0;padding:7px 16px;" onclick="clearFilters()">Temizle</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Ürün Adı</th><th>Kalem No</th><th>Rev No</th><th>Kafile No</th><th>Seri No</th><th>Yapılan İşlemler</th><th>Teknisyen</th><th>Tarih</th>
+            </tr></thead>
+            <tbody id="all-ops-body">
+              <tr><td colspan="8" class="empty-state">Yükleniyor...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="success-toast" id="toast">✅ Kayıt başarıyla eklendi!</div>
+
+<!-- FIREBASE SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, query, where, orderBy, doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// =============================================
+// 🔧 BURAYA KENDİ FIREBASE CONFIG'İNİZİ GİRİN
+// Firebase Console > Project Settings > Web App
+// =============================================
+const firebaseConfig = {
+  apiKey: "BURAYA_API_KEY",
+  authDomain: "BURAYA_AUTH_DOMAIN",
+  projectId: "BURAYA_PROJECT_ID",
+  storageBucket: "BURAYA_STORAGE_BUCKET",
+  messagingSenderId: "BURAYA_MESSAGING_SENDER_ID",
+  appId: "BURAYA_APP_ID"
+};
+// =============================================
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const ISLEMLER = ["Bütünleme","Fonksiyonel","Sızdırmazlık","ESS","Kalibrasyon","Nem Alma"];
+let currentUser = null;
+let currentRole = null;
+let allOpsCache = [];
+
+// Build checkbox grid
+const grid = document.getElementById("ops-grid");
+ISLEMLER.forEach(islem => {
+  const id = "op-" + islem.replace(/\s/g,"");
+  const div = document.createElement("div");
+  div.className = "op-check";
+  div.id = "div-" + id;
+  div.innerHTML = `<input type="checkbox" id="${id}" value="${islem}"/><span>${islem}</span>`;
+  div.onclick = (e) => {
+    const cb = div.querySelector("input");
+    if(e.target !== cb) cb.checked = !cb.checked;
+    div.classList.toggle("checked", cb.checked);
+  };
+  grid.appendChild(div);
+});
+
+// Auth state
+onAuthStateChanged(auth, async (user) => {
+  if(user){
+    currentUser = user;
+    const snap = await getDoc(doc(db,"users",user.uid));
+    if(snap.exists()){
+      const data = snap.data();
+      currentRole = data.role;
+      document.getElementById("topbar-user").innerHTML =
+        `${data.name} <span class="role-badge role-${currentRole}">${currentRole}</span>`;
+      showApp();
+    }
+  } else {
+    currentUser = null;
+    currentRole = null;
+    document.getElementById("auth-screen").style.display = "flex";
+    document.getElementById("app-screen").style.display = "none";
+  }
+});
+
+function showApp(){
+  document.getElementById("auth-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "flex";
+  document.getElementById("panel-teknisyen").classList.add("hidden");
+  document.getElementById("panel-arastirmaci").classList.add("hidden");
+  if(currentRole === "teknisyen"){
+    document.getElementById("panel-teknisyen").classList.remove("hidden");
+    loadMyOps();
+  } else {
+    document.getElementById("panel-arastirmaci").classList.remove("hidden");
+    loadAllOps();
+  }
+}
+
+// AUTH FUNCTIONS
+window.switchTab = (tab) => {
+  document.querySelectorAll(".tab-btn").forEach((b,i)=>{b.classList.toggle("active",i===(tab==="giris"?0:1));});
+  document.getElementById("tab-giris").classList.toggle("hidden", tab!=="giris");
+  document.getElementById("tab-kayit").classList.toggle("hidden", tab!=="kayit");
+};
+
+window.doLogin = async () => {
+  const email = document.getElementById("login-email").value.trim();
+  const pass = document.getElementById("login-pass").value;
+  const err = document.getElementById("login-error");
+  err.style.display = "none";
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+  } catch(e) {
+    err.style.display = "block";
+    err.textContent = e.code === "auth/invalid-credential" ? "E-posta veya şifre hatalı." : e.message;
+  }
+};
+
+window.doRegister = async () => {
+  const name = document.getElementById("reg-name").value.trim();
+  const email = document.getElementById("reg-email").value.trim();
+  const pass = document.getElementById("reg-pass").value;
+  const role = document.getElementById("reg-role").value;
+  const err = document.getElementById("reg-error");
+  err.style.display = "none";
+  if(!name){err.style.display="block";err.textContent="Ad soyad giriniz.";return;}
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email, pass);
+    await setDoc(doc(db,"users",cred.user.uid),{name,email,role,createdAt:serverTimestamp()});
+  } catch(e) {
+    err.style.display = "block";
+    err.textContent = e.code === "auth/email-already-in-use" ? "Bu e-posta zaten kayıtlı." : e.message;
+  }
+};
+
+window.doLogout = () => signOut(auth);
+
+// SAVE OPERATION
+window.saveOperation = async () => {
+  const urunAdi = document.getElementById("f-urun-adi").value.trim();
+  const kalemNo = document.getElementById("f-kalem-no").value.trim();
+  const revizyonNo = document.getElementById("f-revizyon-no").value.trim();
+  const kafileNo = document.getElementById("f-kafile-no").value.trim();
+  const seriNo = document.getElementById("f-seri-no").value.trim();
+  const secilenler = ISLEMLER.filter(i => document.getElementById("op-"+i.replace(/\s/g,"")).checked);
+  const err = document.getElementById("form-error");
+  err.style.display = "none";
+  if(!urunAdi||!kalemNo||!kafileNo||!seriNo){
+    err.style.display="block";err.textContent="Ürün adı, kalem no, kafile no ve seri no zorunludur.";return;
+  }
+  if(secilenler.length===0){
+    err.style.display="block";err.textContent="En az bir işlem seçiniz.";return;
+  }
+  try {
+    const snap = await getDoc(doc(db,"users",currentUser.uid));
+    const uname = snap.data().name;
+    await addDoc(collection(db,"operations"),{
+      urunAdi,kalemNo,revizyonNo,kafileNo,seriNo,
+      islemler:secilenler,
+      teknisyenId:currentUser.uid,
+      teknisyenAdi:uname,
+      tarih:serverTimestamp()
+    });
+    // Reset
+    ["f-urun-adi","f-kalem-no","f-revizyon-no","f-kafile-no","f-seri-no"].forEach(id=>{document.getElementById(id).value="";});
+    ISLEMLER.forEach(i=>{
+      const cb = document.getElementById("op-"+i.replace(/\s/g,""));
+      cb.checked = false;
+      document.getElementById("div-op-"+i.replace(/\s/g,"")).classList.remove("checked");
+    });
+    showToast();
+    loadMyOps();
+  } catch(e){
+    err.style.display="block";err.textContent="Kayıt hatası: "+e.message;
+  }
+};
+
+function showToast(){
+  const t = document.getElementById("toast");
+  t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"),2500);
+}
+
+// LOAD MY OPS
+async function loadMyOps(){
+  const q = query(collection(db,"operations"),where("teknisyenId","==",currentUser.uid),orderBy("tarih","desc"));
+  const snap = await getDocs(q);
+  const tbody = document.getElementById("my-ops-body");
+  if(snap.empty){tbody.innerHTML='<tr><td colspan="6" class="empty-state">Henüz kayıt yok</td></tr>';return;}
+  tbody.innerHTML = snap.docs.map(d=>{
+    const r = d.data();
+    const tarih = r.tarih?.toDate ? r.tarih.toDate().toLocaleDateString("tr-TR") : "-";
+    const pills = r.islemler.map(i=>`<span class="op-pill">${i}</span>`).join("");
+    return `<tr>
+      <td>${r.urunAdi}</td><td>${r.kalemNo}</td><td>${r.kafileNo}</td><td>${r.seriNo}</td>
+      <td><div class="ops-display">${pills}</div></td><td>${tarih}</td>
+    </tr>`;
+  }).join("");
+}
+
+// LOAD ALL OPS
+async function loadAllOps(){
+  const q = query(collection(db,"operations"),orderBy("tarih","desc"));
+  const snap = await getDocs(q);
+  allOpsCache = snap.docs.map(d=>d.data());
+  updateStats(allOpsCache);
+  renderAllOps();
+}
+
+function updateStats(data){
+  document.getElementById("stat-total").textContent = data.length;
+  ISLEMLER.forEach(i=>{
+    const key = "stat-"+i.toLowerCase().replace(/\s/g,"");
+    const el = document.getElementById(key);
+    if(el) el.textContent = data.filter(r=>r.islemler&&r.islemler.includes(i)).length;
+  });
+}
+
+window.renderAllOps = () => {
+  const fKalem = document.getElementById("filter-kalem").value.trim().toLowerCase();
+  const fKafile = document.getElementById("filter-kafile").value.trim().toLowerCase();
+  const fIslem = document.getElementById("filter-islem").value;
+  let data = allOpsCache;
+  if(fKalem) data = data.filter(r=>r.kalemNo.toLowerCase().includes(fKalem));
+  if(fKafile) data = data.filter(r=>r.kafileNo.toLowerCase().includes(fKafile));
+  if(fIslem) data = data.filter(r=>r.islemler&&r.islemler.includes(fIslem));
+  const tbody = document.getElementById("all-ops-body");
+  if(data.length===0){tbody.innerHTML='<tr><td colspan="8" class="empty-state">Kayıt bulunamadı</td></tr>';return;}
+  tbody.innerHTML = data.map(r=>{
+    const tarih = r.tarih?.toDate ? r.tarih.toDate().toLocaleDateString("tr-TR") : "-";
+    const pills = (r.islemler||[]).map(i=>`<span class="op-pill">${i}</span>`).join("");
+    return `<tr>
+      <td>${r.urunAdi}</td><td>${r.kalemNo}</td><td>${r.revizyonNo||"-"}</td><td>${r.kafileNo}</td>
+      <td>${r.seriNo}</td><td><div class="ops-display">${pills}</div></td>
+      <td>${r.teknisyenAdi||"-"}</td><td>${tarih}</td>
+    </tr>`;
+  }).join("");
+};
+
+window.clearFilters = () => {
+  document.getElementById("filter-kalem").value = "";
+  document.getElementById("filter-kafile").value = "";
+  document.getElementById("filter-islem").value = "";
+  renderAllOps();
+};
+</script>
+</body>
+</html>
