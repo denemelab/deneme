@@ -225,10 +225,15 @@
         <div><label class="field-label">Seri No *</label><input type="text" id="f-seri" class="field-input"></div>
       </div>
       
-      <div class="form-grid" style="margin-top:10px;">
-        <div><label class="field-label">Pozisyon</label><input type="text" id="f-pozisyon" class="field-input"></div>
-        <div><label class="field-label">NemMu Değeri</label><input type="text" id="f-nemmu" class="field-input"></div>
-        <div><label class="field-label">Fo Değeri</label><input type="text" id="f-fo" class="field-input"></div>
+      <div style="display:flex; gap:20px; margin-top:8px; padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:6px;">
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--text); font-weight:600;">
+          <input type="checkbox" id="opt-keep-data" checked style="accent-color:var(--accent); width:16px; height:16px;">
+          Kaydettikten Sonra Bilgileri Sabit Tut (Sadece Seri No Odaklı)
+        </label>
+        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--text); font-weight:600;">
+          <input type="checkbox" id="opt-auto-inc" checked style="accent-color:var(--accent); width:16px; height:16px;">
+          Seri No'yu Otomatik Artır
+        </label>
       </div>
     </div>
 
@@ -246,7 +251,7 @@
       
       <div style="margin-top:24px; display:flex; gap:12px;">
         <button class="btn btn-primary" onclick="saveSingleRecord()">💾 Kaydı Tamamla (Enter)</button>
-        <button class="btn btn-secondary" onclick="clearForm()">🧹 Temizle</button>
+        <button class="btn btn-secondary" onclick="clearForm()">🧹 Formu Temizle</button>
       </div>
     </div>
   </div>
@@ -443,7 +448,6 @@ document.getElementById("search-input").addEventListener("input", (e) => {
 
 // --- BULUT ÇİPLER (HIZLI SEÇ) ---
 function generateQuickChips() {
-    // Sadece giriş yapan kullanıcının son kayıtları
     const myOps = allRecords.filter(r => r.teknisyenId === currentUser.uid);
     let uniqueCombos = [];
     let seenKeys = new Set();
@@ -475,7 +479,6 @@ window.fillQuickForm = (data) => {
     document.getElementById("f-kalem").value = data.kalemNo || "";
     document.getElementById("f-rev").value = data.revizyonNo || "";
     document.getElementById("f-batch").value = data.batch || "";
-    document.getElementById("f-pozisyon").value = data.pozisyon || "";
     
     // İşlemleri işaretle
     const opsList = data.islemler || [];
@@ -508,13 +511,11 @@ window.saveSingleRecord = async () => {
         return Swal.fire("Uyarı", "Yıldızlı alanları doldurunuz.", "warning");
     }
 
-    // Seçilen işlemleri al
     const islemler = Array.from(document.querySelectorAll(".op-check input:checked")).map(cb => cb.value);
 
     const data = {
         urunAdi, kalemNo, revizyonNo: document.getElementById("f-rev").value.trim(),
-        batch, seriNo, pozisyon: document.getElementById("f-pozisyon").value.trim(),
-        nemMu: document.getElementById("f-nemmu").value.trim(), fo: document.getElementById("f-fo").value.trim(),
+        batch, seriNo,
         islemler, hatali: document.getElementById("f-hatali").checked,
         teknisyenId: currentUser.uid, teknisyenAdi: currentUserName, tarih: serverTimestamp()
     };
@@ -522,15 +523,23 @@ window.saveSingleRecord = async () => {
     showLoader();
     try {
         await addDoc(collection(db, "urunler"), data);
-        Swal.fire({ title: 'Başarılı', text: 'Kayıt eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+        Swal.fire({ title: 'Başarılı', text: 'Kayıt eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1000, showConfirmButton: false });
         
-        // Akıllı Seri No Artırımı
-        if(!isNaN(parseInt(seriNo))) {
-            document.getElementById("f-seri").value = (parseInt(seriNo) + 1).toString();
+        // Akıllı Form Yönetimi (Sadece Seri No Değiştirme)
+        const keepData = document.getElementById("opt-keep-data").checked;
+        const autoInc = document.getElementById("opt-auto-inc").checked;
+
+        if (keepData) {
+            if (autoInc && !isNaN(parseInt(seriNo))) {
+                document.getElementById("f-seri").value = (parseInt(seriNo) + 1).toString();
+            } else {
+                document.getElementById("f-seri").value = "";
+            }
+            document.getElementById("f-hatali").checked = false;
         } else {
-            document.getElementById("f-seri").value = "";
+            clearForm();
         }
-        document.getElementById("f-hatali").checked = false;
+        
         document.getElementById("f-seri").focus();
     } catch(e) { Swal.fire("Hata", e.message, "error"); }
     hideLoader();
@@ -605,7 +614,6 @@ function updateDashboard() {
 }
 
 function updateCharts() {
-    // İşlem Dağılımı
     const counts = {};
     ISLEMLER.forEach(i => counts[i] = 0);
     allRecords.forEach(r => { (r.islemler || []).forEach(op => { if(counts[op]!==undefined) counts[op]++; }) });
@@ -616,7 +624,6 @@ function updateCharts() {
         data: { labels: ISLEMLER, datasets: [{ label: 'Tamamlanan İşlem Sayısı', data: Object.values(counts), backgroundColor: '#4f46e5', borderRadius: 4 }] }
     });
 
-    // Teknisyen Dağılımı
     const techCounts = {};
     allRecords.forEach(r => { techCounts[r.teknisyenAdi] = (techCounts[r.teknisyenAdi] || 0) + 1; });
     
@@ -631,7 +638,6 @@ function updateCharts() {
 window.exportToExcel = () => {
     const data = allRecords.map(r => ({
         "Ürün Adı": r.urunAdi, "Kalem No": r.kalemNo, "Kafile": r.batch, "Seri No": r.seriNo,
-        "Pozisyon": r.pozisyon || "-", "NemMu": r.nemMu || "-", "Fo": r.fo || "-",
         "İşlemler": (r.islemler || []).join(", "), "Durum": r.hatali ? "HATALI" : "OK",
         "Teknisyen": r.teknisyenAdi, "Tarih": r.tarih?.toDate ? r.tarih.toDate().toLocaleString('tr-TR') : "-"
     }));
