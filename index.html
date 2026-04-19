@@ -513,6 +513,29 @@ window.saveSingleRecord = async () => {
 
     const islemler = Array.from(document.querySelectorAll(".op-check input:checked")).map(cb => cb.value);
 
+    // --- MÜKERRER İŞLEM KONTROLÜ BAŞLANGICI ---
+    const mevcutKayitlar = allRecords.filter(r => 
+        r.urunAdi === urunAdi && 
+        r.batch === batch && 
+        r.seriNo === seriNo
+    );
+
+    const yapilanIslemler = new Set();
+    mevcutKayitlar.forEach(kayit => {
+        (kayit.islemler || []).forEach(islem => yapilanIslemler.add(islem));
+    });
+
+    const cakisilanIslemler = islemler.filter(islem => yapilanIslemler.has(islem));
+
+    if (cakisilanIslemler.length > 0) {
+        return Swal.fire({
+            title: "Mükerrer İşlem!",
+            html: `Bu ürüne (Seri No: <b>${seriNo}</b>) daha önce şu işlemler kaydedilmiş:<br><br><span style="color:var(--danger); font-weight:bold; font-family:var(--mono);">${cakisilanIslemler.join(", ")}</span><br><br>Lütfen listeden farklı bir işlem seçin.`,
+            icon: "error"
+        });
+    }
+    // --- MÜKERRER İŞLEM KONTROLÜ BİTİŞİ ---
+
     const data = {
         urunAdi, kalemNo, revizyonNo: document.getElementById("f-rev").value.trim(),
         batch, seriNo,
@@ -536,6 +559,12 @@ window.saveSingleRecord = async () => {
                 document.getElementById("f-seri").value = "";
             }
             document.getElementById("f-hatali").checked = false;
+            
+            // İşlemleri temizleyelim ki bir sonraki üründe yanlışlıkla aynısı kaydedilmesin
+            document.querySelectorAll(".op-check").forEach(div => {
+                div.querySelector("input").checked = false;
+                div.classList.remove("checked");
+            });
         } else {
             clearForm();
         }
