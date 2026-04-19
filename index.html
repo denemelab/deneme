@@ -512,67 +512,98 @@ window.saveSingleRecord = async () => {
     }
 
     const islemler = Array.from(document.querySelectorAll(".op-check input:checked")).map(cb => cb.value);
+    const formHatali = document.getElementById("f-hatali").checked;
 
-    // --- MÜKERRER İŞLEM KONTROLÜ BAŞLANGICI ---
-    const mevcutKayitlar = allRecords.filter(r => 
+    // 1. Ürünün önceden kayıtlı olup olmadığını kontrol et
+    const mevcutKayit = allRecords.find(r => 
         r.urunAdi === urunAdi && 
         r.batch === batch && 
         r.seriNo === seriNo
     );
 
-    const yapilanIslemler = new Set();
-    mevcutKayitlar.forEach(kayit => {
-        (kayit.islemler || []).forEach(islem => yapilanIslemler.add(islem));
-    });
-
-    const cakisilanIslemler = islemler.filter(islem => yapilanIslemler.has(islem));
-
-    if (cakisilanIslemler.length > 0) {
-        return Swal.fire({
-            title: "Mükerrer İşlem!",
-            html: `Bu ürüne (Seri No: <b>${seriNo}</b>) daha önce şu işlemler kaydedilmiş:<br><br><span style="color:var(--danger); font-weight:bold; font-family:var(--mono);">${cakisilanIslemler.join(", ")}</span><br><br>Lütfen listeden farklı bir işlem seçin.`,
-            icon: "error"
-        });
-    }
-    // --- MÜKERRER İŞLEM KONTROLÜ BİTİŞİ ---
-
-    const data = {
-        urunAdi, kalemNo, revizyonNo: document.getElementById("f-rev").value.trim(),
-        batch, seriNo,
-        islemler, hatali: document.getElementById("f-hatali").checked,
-        teknisyenId: currentUser.uid, teknisyenAdi: currentUserName, tarih: serverTimestamp()
-    };
-
-    showLoader();
-    try {
-        await addDoc(collection(db, "urunler"), data);
-        Swal.fire({ title: 'Başarılı', text: 'Kayıt eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1000, showConfirmButton: false });
+    if (mevcutKayit) {
+        // --- MEVCUT ÜRÜN GÜNCELLEMESİ ---
         
-        // Akıllı Form Yönetimi (Sadece Seri No Değiştirme)
-        const keepData = document.getElementById("opt-keep-data").checked;
-        const autoInc = document.getElementById("opt-auto-inc").checked;
+        // Mükerrer İşlem Kontrolü
+        const yapilanIslemler = new Set(mevcutKayit.islemler || []);
+        const cakisilanIslemler = islemler.filter(islem => yapilanIslemler.has(islem));
 
-        if (keepData) {
-            if (autoInc && !isNaN(parseInt(seriNo))) {
-                document.getElementById("f-seri").value = (parseInt(seriNo) + 1).toString();
-            } else {
-                document.getElementById("f-seri").value = "";
-            }
-            document.getElementById("f-hatali").checked = false;
-            
-            // İşlemleri temizleyelim ki bir sonraki üründe yanlışlıkla aynısı kaydedilmesin
-            document.querySelectorAll(".op-check").forEach(div => {
-                div.querySelector("input").checked = false;
-                div.classList.remove("checked");
+        if (cakisilanIslemler.length > 0) {
+            return Swal.fire({
+                title: "Mükerrer İşlem!",
+                html: `Bu ürüne (Seri No: <b>${seriNo}</b>) daha önce şu işlemler kaydedilmiş:<br><br><span style="color:var(--danger); font-weight:bold; font-family:var(--mono);">${cakisilanIslemler.join(", ")}</span><br><br>Lütfen listeden farklı bir işlem seçin.`,
+                icon: "error"
             });
-        } else {
-            clearForm();
         }
-        
-        document.getElementById("f-seri").focus();
-    } catch(e) { Swal.fire("Hata", e.message, "error"); }
-    hideLoader();
+
+        showLoader();
+        try {
+            // Eski işlemlerle yeni işlemleri birleştir
+            const birlesikIslemler = [...(mevcutKayit.islemler || []), ...islemler];
+            // Eğer önceden hatalı işaretlendiyse hatalı kalsın, değilse formdaki duruma bak
+            const yeniHataliDurum = mevcutKayit.hatali || formHatali; 
+
+            // Kaydı Güncelle (merge: true ile sadece belirlediğimiz alanlar değişir)
+            await setDoc(doc(db, "urunler", mevcutKayit.id), {
+                islemler: birlesikIslemler,
+                hatali: yeniHataliDurum,
+                teknisyenId: currentUser.uid, 
+                teknisyenAdi: currentUserName, 
+                tarih: serverTimestamp()
+            }, { merge: true });
+
+            Swal.fire({ title: 'Başarılı', text: 'Mevcut kayda yeni işlemler eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+            kayitSonrasiAksiyonlar(seriNo);
+        } catch(e) { 
+            Swal.fire("Hata", e.message, "error"); 
+        }
+        hideLoader();
+
+    } else {
+        // --- YENİ ÜRÜN EKLENMESİ ---
+        const data = {
+            urunAdi, kalemNo, revizyonNo: document.getElementById("f-rev").value.trim(),
+            batch, seriNo,
+            islemler, hatali: formHatali,
+            teknisyenId: currentUser.uid, teknisyenAdi: currentUserName, tarih: serverTimestamp()
+        };
+
+        showLoader();
+        try {
+            await addDoc(collection(db, "urunler"), data);
+            Swal.fire({ title: 'Başarılı', text: 'Yeni kayıt eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1000, showConfirmButton: false });
+            kayitSonrasiAksiyonlar(seriNo);
+        } catch(e) { 
+            Swal.fire("Hata", e.message, "error"); 
+        }
+        hideLoader();
+    }
 };
+
+// Form temizleme ve seri no artırma mantığını tekrarlamamak için ortak fonksiyon
+function kayitSonrasiAksiyonlar(eskiSeriNo) {
+    const keepData = document.getElementById("opt-keep-data").checked;
+    const autoInc = document.getElementById("opt-auto-inc").checked;
+
+    if (keepData) {
+        if (autoInc && !isNaN(parseInt(eskiSeriNo))) {
+            document.getElementById("f-seri").value = (parseInt(eskiSeriNo) + 1).toString();
+        } else {
+            document.getElementById("f-seri").value = "";
+        }
+        document.getElementById("f-hatali").checked = false;
+        
+        // İşlemleri temizle
+        document.querySelectorAll(".op-check").forEach(div => {
+            div.querySelector("input").checked = false;
+            div.classList.remove("checked");
+        });
+    } else {
+        clearForm();
+    }
+    
+    document.getElementById("f-seri").focus();
+}
 
 window.saveBulkRecord = async () => {
     const urunAdi = document.getElementById("t-urun").value.trim();
