@@ -268,6 +268,19 @@
     </div>
 
     <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between;">
+        <span>Yapılan Operasyonlar (Toplu)</span>
+        <button class="btn btn-secondary" style="padding:2px 8px; font-size:10px;" onclick="toggleAllBulkOps()">Hepsini Seç</button>
+      </div>
+      <div class="ops-grid" id="bulk-ops-container"></div>
+      
+      <div style="display:flex; align-items:center; gap:10px; margin-top:20px; padding:10px; border:1px solid var(--danger); background:#fef2f2; border-radius:8px;">
+        <input type="checkbox" id="t-hatali" style="width:20px; height:20px; accent-color:var(--danger)">
+        <label for="t-hatali" style="font-family:var(--mono); font-weight:600; color:var(--danger); cursor:pointer;">Bu ürünlerin HEPSİNİ hatalı olarak işaretle</label>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">Seri Numaraları (Aralık veya Liste)</div>
       <div style="display:flex; gap:20px; margin-bottom:16px;">
         <label><input type="radio" name="bulkType" value="range" checked onchange="toggleBulkMode()"> Aralık Belirt</label>
@@ -339,7 +352,10 @@ window.toggleBulkMode = () => {
 
 // Checkbox oluşturma
 const opsContainer = document.getElementById("ops-container");
+const bulkOpsContainer = document.getElementById("bulk-ops-container");
+
 ISLEMLER.forEach(i => {
+    // Tekli Ekleme İçin
     const div = document.createElement("div");
     div.className = "op-check";
     div.innerHTML = `<input type="checkbox" value="${i}"> <span>${i}</span>`;
@@ -349,14 +365,34 @@ ISLEMLER.forEach(i => {
         div.classList.toggle("checked", cb.checked);
     };
     opsContainer.appendChild(div);
+
+    // Toplu Ekleme İçin
+    const bDiv = document.createElement("div");
+    bDiv.className = "op-check";
+    bDiv.innerHTML = `<input type="checkbox" value="${i}"> <span>${i}</span>`;
+    bDiv.onclick = (e) => {
+        const cb = bDiv.querySelector("input");
+        if(e.target !== cb) cb.checked = !cb.checked;
+        bDiv.classList.toggle("checked", cb.checked);
+    };
+    bulkOpsContainer.appendChild(bDiv);
 });
 
 let allOpsSelected = false;
 window.toggleAllOps = () => {
     allOpsSelected = !allOpsSelected;
-    document.querySelectorAll(".op-check").forEach(div => {
+    document.querySelectorAll("#ops-container .op-check").forEach(div => {
         div.querySelector("input").checked = allOpsSelected;
         div.classList.toggle("checked", allOpsSelected);
+    });
+};
+
+let allBulkOpsSelected = false;
+window.toggleAllBulkOps = () => {
+    allBulkOpsSelected = !allBulkOpsSelected;
+    document.querySelectorAll("#bulk-ops-container .op-check").forEach(div => {
+        div.querySelector("input").checked = allBulkOpsSelected;
+        div.classList.toggle("checked", allBulkOpsSelected);
     });
 };
 
@@ -480,9 +516,9 @@ window.fillQuickForm = (data) => {
     document.getElementById("f-rev").value = data.revizyonNo || "";
     document.getElementById("f-batch").value = data.batch || "";
     
-    // İşlemleri işaretle
+    // İşlemleri işaretle (Sadece tekli ekleme kısmı)
     const opsList = data.islemler || [];
-    document.querySelectorAll(".op-check").forEach(div => {
+    document.querySelectorAll("#ops-container .op-check").forEach(div => {
         const cb = div.querySelector("input");
         const isChecked = opsList.includes(cb.value);
         cb.checked = isChecked;
@@ -511,10 +547,9 @@ window.saveSingleRecord = async () => {
         return Swal.fire("Uyarı", "Yıldızlı alanları doldurunuz.", "warning");
     }
 
-    const islemler = Array.from(document.querySelectorAll(".op-check input:checked")).map(cb => cb.value);
+    const islemler = Array.from(document.querySelectorAll("#ops-container .op-check input:checked")).map(cb => cb.value);
     const formHatali = document.getElementById("f-hatali").checked;
 
-    // 1. Ürünün önceden kayıtlı olup olmadığını kontrol et
     const mevcutKayit = allRecords.find(r => 
         r.urunAdi === urunAdi && 
         r.batch === batch && 
@@ -522,9 +557,6 @@ window.saveSingleRecord = async () => {
     );
 
     if (mevcutKayit) {
-        // --- MEVCUT ÜRÜN GÜNCELLEMESİ ---
-        
-        // Mükerrer İşlem Kontrolü
         const yapilanIslemler = new Set(mevcutKayit.islemler || []);
         const cakisilanIslemler = islemler.filter(islem => yapilanIslemler.has(islem));
 
@@ -538,12 +570,9 @@ window.saveSingleRecord = async () => {
 
         showLoader();
         try {
-            // Eski işlemlerle yeni işlemleri birleştir
             const birlesikIslemler = [...(mevcutKayit.islemler || []), ...islemler];
-            // Eğer önceden hatalı işaretlendiyse hatalı kalsın, değilse formdaki duruma bak
             const yeniHataliDurum = mevcutKayit.hatali || formHatali; 
 
-            // Kaydı Güncelle (merge: true ile sadece belirlediğimiz alanlar değişir)
             await setDoc(doc(db, "urunler", mevcutKayit.id), {
                 islemler: birlesikIslemler,
                 hatali: yeniHataliDurum,
@@ -560,7 +589,6 @@ window.saveSingleRecord = async () => {
         hideLoader();
 
     } else {
-        // --- YENİ ÜRÜN EKLENMESİ ---
         const data = {
             urunAdi, kalemNo, revizyonNo: document.getElementById("f-rev").value.trim(),
             batch, seriNo,
@@ -580,7 +608,6 @@ window.saveSingleRecord = async () => {
     }
 };
 
-// Form temizleme ve seri no artırma mantığını tekrarlamamak için ortak fonksiyon
 function kayitSonrasiAksiyonlar(eskiSeriNo) {
     const keepData = document.getElementById("opt-keep-data").checked;
     const autoInc = document.getElementById("opt-auto-inc").checked;
@@ -593,8 +620,7 @@ function kayitSonrasiAksiyonlar(eskiSeriNo) {
         }
         document.getElementById("f-hatali").checked = false;
         
-        // İşlemleri temizle
-        document.querySelectorAll(".op-check").forEach(div => {
+        document.querySelectorAll("#ops-container .op-check").forEach(div => {
             div.querySelector("input").checked = false;
             div.classList.remove("checked");
         });
@@ -612,6 +638,9 @@ window.saveBulkRecord = async () => {
 
     if(!urunAdi || !kalemNo || !batch) return Swal.fire("Uyarı", "Ortak değerleri doldurun.", "warning");
 
+    const islemler = Array.from(document.querySelectorAll("#bulk-ops-container .op-check input:checked")).map(cb => cb.value);
+    const formHatali = document.getElementById("t-hatali").checked;
+
     let seriNolar = [];
     const isRange = document.querySelector('input[name="bulkType"]:checked').value === 'range';
     
@@ -626,6 +655,9 @@ window.saveBulkRecord = async () => {
 
     if(seriNolar.length === 0) return Swal.fire("Hata", "Seri numarası bulunamadı.", "warning");
 
+    // Alfasayısal doğal sıralama
+    seriNolar.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+
     showLoader();
     try {
         const batchOp = writeBatch(db);
@@ -633,15 +665,23 @@ window.saveBulkRecord = async () => {
             const docRef = doc(collection(db, "urunler"));
             batchOp.set(docRef, {
                 urunAdi, kalemNo, batch, seriNo: s,
-                islemler: [], hatali: false,
+                islemler: islemler,
+                hatali: formHatali,
                 teknisyenId: currentUser.uid, teknisyenAdi: currentUserName, tarih: serverTimestamp()
             });
         });
         await batchOp.commit();
         Swal.fire("Başarılı", `${seriNolar.length} adet kayıt toplu eklendi.`, "success");
+        
+        // Formu Temizle
         document.getElementById("t-baslangic").value = "";
         document.getElementById("t-bitis").value = "";
         document.getElementById("t-liste").value = "";
+        document.getElementById("t-hatali").checked = false;
+        document.querySelectorAll("#bulk-ops-container .op-check").forEach(div => {
+            div.querySelector("input").checked = false;
+            div.classList.remove("checked");
+        });
     } catch(e) { Swal.fire("Hata", e.message, "error"); }
     hideLoader();
 };
@@ -654,7 +694,7 @@ window.deleteRecord = async (id) => {
 window.clearForm = () => {
     document.querySelectorAll("#page-ekle input[type=text]").forEach(el => el.value = "");
     document.getElementById("f-hatali").checked = false;
-    document.querySelectorAll(".op-check").forEach(div => {
+    document.querySelectorAll("#ops-container .op-check").forEach(div => {
         div.querySelector("input").checked = false;
         div.classList.remove("checked");
     });
