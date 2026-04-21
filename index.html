@@ -558,33 +558,46 @@ window.saveSingleRecord = async () => {
 
     if (mevcutKayit) {
         const yapilanIslemler = new Set(mevcutKayit.islemler || []);
-        const cakisilanIslemler = islemler.filter(islem => yapilanIslemler.has(islem));
 
-        if (cakisilanIslemler.length > 0) {
+        // Sadece daha önce yapılmamış olan YENİ işlemleri filtrele
+        const yeniEklenecekIslemler = islemler.filter(islem => !yapilanIslemler.has(islem));
+        const yeniHataliDurum = mevcutKayit.hatali || formHatali;
+
+        // Eğer eklenecek yeni bir işlem yoksa ve hata durumu da değişmiyorsa kullanıcıyı uyar (işlemi boşuna veritabanına yazma)
+        if (yeniEklenecekIslemler.length === 0 && mevcutKayit.hatali === yeniHataliDurum) {
             return Swal.fire({
-                title: "Mükerrer İşlem!",
-                html: `Bu ürüne (Seri No: <b>${seriNo}</b>) daha önce şu işlemler kaydedilmiş:<br><br><span style="color:var(--danger); font-weight:bold; font-family:var(--mono);">${cakisilanIslemler.join(", ")}</span><br><br>Lütfen listeden farklı bir işlem seçin.`,
-                icon: "error"
+                title: "Bilgi",
+                text: "Seçilen işlemler bu ürüne zaten kaydedilmiş. Yeni bir işlem yok.",
+                icon: "info"
             });
         }
 
         showLoader();
         try {
-            const birlesikIslemler = [...(mevcutKayit.islemler || []), ...islemler];
-            const yeniHataliDurum = mevcutKayit.hatali || formHatali; 
+            // Sadece YENİ işlemleri eskilerin üzerine ekle
+            const birlesikIslemler = [...(mevcutKayit.islemler || []), ...yeniEklenecekIslemler];
 
             await setDoc(doc(db, "urunler", mevcutKayit.id), {
                 islemler: birlesikIslemler,
                 hatali: yeniHataliDurum,
-                teknisyenId: currentUser.uid, 
-                teknisyenAdi: currentUserName, 
+                teknisyenId: currentUser.uid,
+                teknisyenAdi: currentUserName,
                 tarih: serverTimestamp()
             }, { merge: true });
 
-            Swal.fire({ title: 'Başarılı', text: 'Mevcut kayda yeni işlemler eklendi', icon: 'success', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+            Swal.fire({
+                title: 'Başarılı',
+                text: yeniEklenecekIslemler.length > 0 ? `Yeni işlemler eklendi: ${yeniEklenecekIslemler.join(', ')}` : 'Kayıt güncellendi',
+                icon: 'success',
+                toast: true,
+                position: 'top-end',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
             kayitSonrasiAksiyonlar(seriNo);
-        } catch(e) { 
-            Swal.fire("Hata", e.message, "error"); 
+        } catch(e) {
+            Swal.fire("Hata", e.message, "error");
         }
         hideLoader();
 
